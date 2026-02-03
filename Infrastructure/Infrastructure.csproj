@@ -27,9 +27,6 @@
 
   <ItemGroup>
     <Folder Include="DataSeeds\" />
-    <Folder Include="DbContext\" />
-    <Folder Include="PaggingItems\" />
-    <Folder Include="Repo\" />
   </ItemGroup>
 
 </Project>
