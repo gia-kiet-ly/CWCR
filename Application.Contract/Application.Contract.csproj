@@ -30,7 +30,6 @@
     <Folder Include="Configurations\" />
     <Folder Include="DTOs\" />
     <Folder Include="Interfaces.ExternalService\" />
-    <Folder Include="Interfaces.Services\" />
     <Folder Include="Options\" />
     <Folder Include="SearchFilter\" />
   </ItemGroup>

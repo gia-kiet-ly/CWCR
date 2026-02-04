@@ -39,7 +39,6 @@
     <Folder Include="ExternalService\" />
     <Folder Include="Infrastructure\" />
     <Folder Include="MappingProfiles\" />
-    <Folder Include="Services\" />
     <Folder Include="Utils\" />
   </ItemGroup>
 
