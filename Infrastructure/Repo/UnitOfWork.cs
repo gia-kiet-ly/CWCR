@@ -86,7 +86,7 @@ namespace Infrastructure.Repo
             return await _context.Database.ExecuteSqlRawAsync(sql, parameters);
         }
 
-        public async Task<bool> IsValidAsync<T>(string id) where T : BaseEntity
+        public async Task<bool> IsValidAsync<T>(Guid id) where T : BaseEntity
         {
             var entity = await GetRepository<T>().GetByIdAsync(id);
             return entity is not null && entity.DeletedBy is null;

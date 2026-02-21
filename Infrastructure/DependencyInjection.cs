@@ -18,20 +18,20 @@ namespace Infrastructure
         {
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-                var connectionString = configuration.GetConnectionString("DB");
-                // Increase connection pool size for handling 200+ concurrent requests
-                // Default is 100, setting to 250 to support peak load
-                if (connectionString != null && !connectionString.Contains("Max Pool Size", StringComparison.OrdinalIgnoreCase))
+                var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+                if (!connectionString!.Contains("Max Pool Size", StringComparison.OrdinalIgnoreCase))
                 {
                     var separator = connectionString.EndsWith(";") ? "" : ";";
                     connectionString = $"{connectionString}{separator}Max Pool Size=250;Min Pool Size=10;";
                 }
+
                 options.UseSqlServer(connectionString);
             });
+
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-
-
+            services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
             return services;
         }
