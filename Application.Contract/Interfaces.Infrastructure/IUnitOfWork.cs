@@ -17,7 +17,7 @@ namespace Application.Contract.Interfaces.Infrastructure
         void CommitTransaction();
         Task CommitTransactionAsync();
         void RollBack();
-        Task<bool> IsValidAsync<T>(string id) where T : BaseEntity;
+        Task<bool> IsValidAsync<T>(Guid id) where T : BaseEntity;
         Task RollbackTransactionAsync();
 
         /// <summary>
