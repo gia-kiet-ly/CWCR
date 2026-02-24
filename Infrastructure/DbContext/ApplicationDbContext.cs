@@ -2,12 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace Infrastructure.DbContext
 {
@@ -47,16 +42,15 @@ namespace Infrastructure.DbContext
         // Audit
         public DbSet<SystemAuditLog> SystemAuditLogs { get; set; }
 
-        // ======================== Model Configuration ========================
-
-        //DBSet
+        // Refresh Token
         public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Đổi tên bảng Identity
+            // ======================== Identity Rename ========================
+
             builder.Entity<ApplicationUser>().ToTable("Users");
             builder.Entity<ApplicationRole>().ToTable("Roles");
             builder.Entity<IdentityUserRole<Guid>>().ToTable("UserRoles");
@@ -94,11 +88,11 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                // Lưu ImageUrls dạng CSV
+                // ✅ CHỈ SỬA ĐOẠN NÀY: CSV -> JSON
                 entity.Property(e => e.ImageUrls)
                     .HasConversion(
-                        v => string.Join(',', v),
-                        v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
+                        v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null) ?? new List<string>()
                     );
 
                 entity.HasOne(e => e.WasteType)
@@ -158,7 +152,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Citizen và WasteType không có FK, chỉ là navigation
                 entity.Ignore(e => e.Citizen);
                 entity.Ignore(e => e.WasteType);
             });
@@ -179,7 +172,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.CollectorId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // CollectionRequest là duplicate, ignore
                 entity.Ignore(e => e.CollectionRequest);
             });
 
@@ -211,7 +203,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.AssignmentId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // CollectionRequest không có FK, ignore
                 entity.Ignore(e => e.CollectionRequest);
             });
 
@@ -221,7 +212,6 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                // RuleId là Id rồi, không cần property riêng
                 entity.Ignore(e => e.RuleId);
 
                 entity.HasOne(e => e.Enterprise)
@@ -241,7 +231,6 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                // Representative không có FK, ignore
                 entity.Ignore(e => e.Representative);
             });
 
@@ -262,8 +251,10 @@ namespace Infrastructure.DbContext
             builder.Entity<EnterpriseWasteCapability>(entity =>
             {
                 entity.HasKey(e => e.Id);
+
                 entity.Property(e => e.DailyCapacityKg)
-    .HasPrecision(18, 2);
+                    .HasPrecision(18, 2);
+
                 entity.HasOne(e => e.Enterprise)
                     .WithMany()
                     .HasForeignKey(e => e.EnterpriseId)
@@ -313,7 +304,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(r => r.ComplaintId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                // Complainant và CollectionRequest là duplicate, ignore
                 entity.Ignore(e => e.Complainant);
                 entity.Ignore(e => e.CollectionRequest);
             });
@@ -334,7 +324,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.AdminId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Handler là duplicate của Admin, ignore
                 entity.Ignore(e => e.Handler);
             });
 
