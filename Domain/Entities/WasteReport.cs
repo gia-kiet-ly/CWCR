@@ -10,8 +10,8 @@ namespace Domain.Entities
 
         public string? Description { get; set; }
 
-        public decimal Latitude { get; set; }
-        public decimal Longitude { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
 
         public WasteReportStatus Status { get; set; }
 

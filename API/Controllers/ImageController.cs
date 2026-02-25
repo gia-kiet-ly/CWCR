@@ -1,13 +1,9 @@
 ﻿using Application.Contract.Interfaces.ExternalService;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    /// <summary>
-    /// Controller cho FE upload/delete ảnh độc lập
-    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class ImageController : ControllerBase
@@ -19,13 +15,11 @@ namespace API.Controllers
             _imageService = imageService;
         }
 
-        /// <summary>
-        /// Upload 1 ảnh
-        /// </summary>
+        // =============================
+        // Upload 1 ảnh
+        // =============================
         [HttpPost("upload")]
         [Authorize(AuthenticationSchemes = "Jwt")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Upload(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -43,9 +37,15 @@ namespace API.Controllers
             try
             {
                 using var stream = file.OpenReadStream();
-                var imageUrl = await _imageService.UploadImageAsync(stream, file.FileName);
 
-                return Ok(new { Url = imageUrl });
+                var result = await _imageService
+                    .UploadImageAsync(stream, file.FileName);
+
+                return Ok(new
+                {
+                    result.Url,
+                    result.PublicId
+                });
             }
             catch (Exception ex)
             {
@@ -53,13 +53,11 @@ namespace API.Controllers
             }
         }
 
-        /// <summary>
-        /// Upload nhiều ảnh (tối đa 5)
-        /// </summary>
+        // =============================
+        // Upload nhiều ảnh
+        // =============================
         [HttpPost("upload-multiple")]
         [Authorize(AuthenticationSchemes = "Jwt")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UploadMultiple(List<IFormFile> files)
         {
             if (files == null || files.Count == 0)
@@ -69,7 +67,8 @@ namespace API.Controllers
                 return BadRequest(new { Message = "Maximum 5 images allowed." });
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-            var uploadedUrls = new List<string>();
+
+            var uploaded = new List<object>();
             var errors = new List<string>();
 
             foreach (var file in files)
@@ -81,6 +80,7 @@ namespace API.Controllers
                 }
 
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
                 if (!allowedExtensions.Contains(fileExtension))
                 {
                     errors.Add($"{file.FileName}: Invalid format.");
@@ -96,8 +96,15 @@ namespace API.Controllers
                 try
                 {
                     using var stream = file.OpenReadStream();
-                    var imageUrl = await _imageService.UploadImageAsync(stream, file.FileName);
-                    uploadedUrls.Add(imageUrl);
+
+                    var result = await _imageService
+                        .UploadImageAsync(stream, file.FileName);
+
+                    uploaded.Add(new
+                    {
+                        result.Url,
+                        result.PublicId
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -107,20 +114,18 @@ namespace API.Controllers
 
             return Ok(new
             {
-                UploadedUrls = uploadedUrls,
+                Uploaded = uploaded,
                 Errors = errors,
-                SuccessCount = uploadedUrls.Count,
+                SuccessCount = uploaded.Count,
                 FailureCount = errors.Count
             });
         }
 
-        /// <summary>
-        /// Xóa ảnh
-        /// </summary>
+        // =============================
+        // Delete
+        // =============================
         [HttpDelete("delete")]
         [Authorize(AuthenticationSchemes = "Jwt")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Delete([FromQuery] string publicId)
         {
             if (string.IsNullOrWhiteSpace(publicId))
@@ -131,7 +136,8 @@ namespace API.Controllers
                 var success = await _imageService.DeleteImageAsync(publicId);
 
                 if (!success)
-                    return StatusCode(500, new { Message = "Failed to delete image." });
+                    return StatusCode(500,
+                        new { Message = "Failed to delete image." });
 
                 return Ok(new { Message = "Image deleted successfully." });
             }

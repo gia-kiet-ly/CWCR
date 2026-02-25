@@ -20,6 +20,7 @@ namespace Infrastructure.DbContext
         public DbSet<WasteReport> WasteReports { get; set; }
         public DbSet<WasteReportWaste> WasteReportWastes { get; set; }
         public DbSet<WasteType> WasteTypes { get; set; }
+        public DbSet<WasteImage> WasteImages { get; set; } // ✅ NEW
 
         // Collection & Points
         public DbSet<CitizenPoint> CitizenPoints { get; set; }
@@ -88,13 +89,6 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                // ✅ CHỈ SỬA ĐOẠN NÀY: CSV -> JSON
-                entity.Property(e => e.ImageUrls)
-                    .HasConversion(
-                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
-                        v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null) ?? new List<string>()
-                    );
-
                 entity.HasOne(e => e.WasteType)
                     .WithMany()
                     .HasForeignKey(e => e.WasteTypeId)
@@ -103,6 +97,30 @@ namespace Infrastructure.DbContext
                 entity.HasOne(e => e.WasteReport)
                     .WithMany(r => r.Wastes)
                     .HasForeignKey(e => e.WasteReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // ✅ NEW: Relation with WasteImage
+                entity.HasMany(e => e.Images)
+                    .WithOne(i => i.WasteReportWaste)
+                    .HasForeignKey(i => i.WasteReportWasteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ======================== WasteImage Configuration ========================
+
+            builder.Entity<WasteImage>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.ImageUrl)
+                    .IsRequired();
+
+                entity.Property(e => e.ImageType)
+                    .HasConversion<string>();
+
+                entity.HasOne(e => e.WasteReportWaste)
+                    .WithMany(w => w.Images)
+                    .HasForeignKey(e => e.WasteReportWasteId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
