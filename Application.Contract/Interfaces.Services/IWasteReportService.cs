@@ -1,15 +1,39 @@
 ﻿using Application.Contract.DTOs;
 
-namespace Application.Contract.Interfaces.Services
+namespace Application.Contract.Interfaces
 {
     public interface IWasteReportService
     {
-        Task<Guid> CreateAsync(CreateWasteReportDto dto);
-        Task UpdateAsync(Guid id, UpdateWasteReportDto dto);
-        Task DeleteAsync(Guid id);
+        // =============================
+        // CREATE
+        // =============================
+        Task<WasteReportResponseDto> CreateAsync(
+            CreateWasteReportDto dto,
+            Guid citizenId);
 
-        Task<WasteReportResponseDto?> GetByIdAsync(Guid id);
+        // =============================
+        // UPDATE
+        // =============================
+        Task<WasteReportResponseDto> UpdateAsync(
+            Guid reportId,
+            UpdateWasteReportDto dto);
 
-        Task<PagedWasteReportDto> GetPagedAsync(WasteReportFilterDto filter);
+        // =============================
+        // GET BY ID
+        // =============================
+        Task<WasteReportResponseDto?> GetByIdAsync(
+            Guid reportId);
+
+        // =============================
+        // FILTER + PAGING
+        // =============================
+        Task<PagedWasteReportDto> GetPagedAsync(
+            WasteReportFilterDto filter);
+
+        // =============================
+        // DELETE
+        // =============================
+        Task<bool> DeleteAsync(
+            Guid reportId);
     }
 }

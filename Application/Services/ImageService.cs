@@ -1,4 +1,5 @@
-﻿using Application.Contract.Interfaces.ExternalService;
+﻿using Application.Contract.DTOs;
+using Application.Contract.Interfaces.ExternalService;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 
@@ -13,11 +14,16 @@ namespace Application.ExternalService
             _cloudinary = cloudinary;
         }
 
-        /// <summary>
-        /// Upload ảnh công khai lên Cloudinary
-        /// </summary>
-        public async Task<string> UploadImageAsync(Stream fileStream, string fileName)
+        public async Task<ImageUploadResultDto> UploadImageAsync(
+            Stream fileStream,
+            string fileName)
         {
+            if (fileStream == null || fileStream.Length == 0)
+                throw new ArgumentException("File stream is empty.");
+
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("File name is required.");
+
             var uploadParams = new ImageUploadParams
             {
                 File = new FileDescription(fileName, fileStream),
@@ -28,24 +34,31 @@ namespace Application.ExternalService
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            if (uploadResult.Error != null)
-                throw new Exception($"Upload failed: {uploadResult.Error.Message}");
+            if (uploadResult.StatusCode != System.Net.HttpStatusCode.OK)
+                throw new InvalidOperationException("Cloudinary upload failed.");
 
-            return uploadResult.SecureUrl.ToString();
+            if (uploadResult.Error != null)
+                throw new InvalidOperationException(uploadResult.Error.Message);
+
+            return new ImageUploadResultDto
+            {
+                Url = uploadResult.SecureUrl?.ToString()
+                      ?? throw new InvalidOperationException("Upload returned null URL."),
+                PublicId = uploadResult.PublicId
+                           ?? throw new InvalidOperationException("Upload returned null PublicId.")
+            };
         }
 
-        /// <summary>
-        /// Xóa ảnh từ Cloudinary
-        /// </summary>
         public async Task<bool> DeleteImageAsync(string publicId)
         {
             if (string.IsNullOrWhiteSpace(publicId))
-                throw new ArgumentException("PublicId cannot be null or empty", nameof(publicId));
+                throw new ArgumentException("PublicId cannot be null or empty.");
 
             var deletionParams = new DeletionParams(publicId);
-            var deletionResult = await _cloudinary.DestroyAsync(deletionParams);
 
-            return deletionResult.Result == "ok";
+            var result = await _cloudinary.DestroyAsync(deletionParams);
+
+            return result.Result == "ok";
         }
     }
 }

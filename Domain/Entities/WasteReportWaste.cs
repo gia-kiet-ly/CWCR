@@ -13,6 +13,7 @@ namespace Domain.Entities
 
         // optional: ghi chú riêng cho loại rác này
         public string? Note { get; set; }
-        public List<string> ImageUrls { get; set; } = new();
+        public ICollection<WasteImage> Images { get; set; }
+            = new List<WasteImage>();
     }
 }

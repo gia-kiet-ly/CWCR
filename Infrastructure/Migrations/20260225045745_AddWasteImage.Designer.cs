@@ -4,6 +4,7 @@ using Infrastructure.DbContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260225045745_AddWasteImage")]
+    partial class AddWasteImage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -721,6 +724,51 @@ namespace Infrastructure.Migrations
                     b.ToTable("SystemAuditLogs");
                 });
 
+            modelBuilder.Entity("Domain.Entities.WasteImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ImageType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastUpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WasteReportWasteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WasteReportWasteId");
+
+                    b.ToTable("WasteImages");
+                });
+
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>
                 {
                     b.Property<Guid>("Id")
@@ -754,11 +802,11 @@ namespace Infrastructure.Migrations
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<decimal?>("Latitude")
+                    b.Property<decimal>("Latitude")
                         .HasPrecision(10, 7)
                         .HasColumnType("decimal(10,7)");
 
-                    b.Property<decimal?>("Longitude")
+                    b.Property<decimal>("Longitude")
                         .HasPrecision(10, 7)
                         .HasColumnType("decimal(10,7)");
 
@@ -1019,55 +1067,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("PointRules");
                 });
 
-            modelBuilder.Entity("WasteImage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset>("CreatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset?>("DeletedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ImageType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset>("LastUpdatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("PublicId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("WasteReportWasteId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WasteReportWasteId");
-
-                    b.ToTable("WasteImages");
-                });
-
             modelBuilder.Entity("Domain.Entities.CitizenPoint", b =>
                 {
                     b.HasOne("Domain.Entities.ApplicationUser", "Citizen")
@@ -1263,6 +1262,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Domain.Entities.WasteImage", b =>
+                {
+                    b.HasOne("Domain.Entities.WasteReportWaste", "WasteReportWaste")
+                        .WithMany("Images")
+                        .HasForeignKey("WasteReportWasteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WasteReportWaste");
+                });
+
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>
                 {
                     b.HasOne("Domain.Entities.ApplicationUser", "Citizen")
@@ -1361,17 +1371,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Enterprise");
 
                     b.Navigation("WasteType");
-                });
-
-            modelBuilder.Entity("WasteImage", b =>
-                {
-                    b.HasOne("Domain.Entities.WasteReportWaste", "WasteReportWaste")
-                        .WithMany("Images")
-                        .HasForeignKey("WasteReportWasteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("WasteReportWaste");
                 });
 
             modelBuilder.Entity("Domain.Entities.Complaint", b =>

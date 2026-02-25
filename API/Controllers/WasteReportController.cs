@@ -1,13 +1,15 @@
 ﻿using Application.Contract.DTOs;
+using Application.Contract.Interfaces;
 using Application.Contract.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
     [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
     public class WasteReportController : ControllerBase
     {
         private readonly IWasteReportService _service;
@@ -17,39 +19,38 @@ namespace API.Controllers
             _service = service;
         }
 
-        // =========================================
-        // CREATE
-        // =========================================
         [HttpPost]
-        public async Task<IActionResult> Create(CreateWasteReportDto dto)
+        public async Task<IActionResult> Create([FromForm] CreateWasteReportDto dto)
         {
-            var id = await _service.CreateAsync(dto);
-            return Ok(id);
+            var citizenId = Guid.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            var result = await _service.CreateAsync(dto, citizenId);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = result.Id },
+                result);
         }
 
-        // =========================================
-        // UPDATE
-        // =========================================
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, UpdateWasteReportDto dto)
         {
-            await _service.UpdateAsync(id, dto);
-            return NoContent();
+            var result = await _service.UpdateAsync(id, dto);
+            return Ok(result);
         }
 
-        // =========================================
-        // DELETE
-        // =========================================
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            await _service.DeleteAsync(id);
+            var deleted = await _service.DeleteAsync(id);
+
+            if (!deleted)
+                return NotFound();
+
             return NoContent();
         }
 
-        // =========================================
-        // GET BY ID
-        // =========================================
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
@@ -61,9 +62,6 @@ namespace API.Controllers
             return Ok(result);
         }
 
-        // =========================================
-        // GET PAGED + FILTER
-        // =========================================
         [HttpGet]
         public async Task<IActionResult> GetPaged([FromQuery] WasteReportFilterDto filter)
         {

@@ -1,158 +1,143 @@
 ﻿using Application.Contract.DTOs;
+using Application.Contract.Interfaces;
 using Application.Contract.Interfaces.Infrastructure;
-using Application.Contract.Interfaces.Services;
 using Core.Enum;
-using Domain.Base;
 using Domain.Entities;
+//using Google.Protobuf.WellKnownTypes;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
     public class WasteReportService : IWasteReportService
     {
-        private readonly IUnitOfWork _uow;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public WasteReportService(IUnitOfWork uow)
+        public WasteReportService(IUnitOfWork unitOfWork)
         {
-            _uow = uow;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<Guid> CreateAsync(CreateWasteReportDto dto)
+        // ================= CREATE =================
+        public async Task<WasteReportResponseDto> CreateAsync(
+            CreateWasteReportDto dto,
+            Guid citizenId)
         {
-            if (dto.Latitude == null || dto.Longitude == null)
-                throw new BaseException.BadRequestException(
-                    "invalid_location",
-                    "Latitude and Longitude are required."
-                );
+            var repo = _unitOfWork.GetRepository<WasteReport>();
 
-            var repo = _uow.GetRepository<WasteReport>();
-
-            var entity = new WasteReport
+            var report = new WasteReport
             {
-                Id = Guid.NewGuid(),
-                CitizenId = dto.CitizenId,
+                CitizenId = citizenId,
                 Description = dto.Description,
-                Latitude = dto.Latitude.Value,
-                Longitude = dto.Longitude.Value,
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
                 Status = WasteReportStatus.Pending
             };
 
-            await repo.InsertAsync(entity);
-            await _uow.SaveAsync();
+            await repo.InsertAsync(report);
+            await _unitOfWork.SaveAsync();
 
-            return entity.Id;
+            return MapToDto(report);
         }
 
-        public async Task UpdateAsync(Guid id, UpdateWasteReportDto dto)
+        // ================= UPDATE =================
+        public async Task<WasteReportResponseDto> UpdateAsync(
+            Guid id,
+            UpdateWasteReportDto dto)
         {
-            var repo = _uow.GetRepository<WasteReport>();
+            var repo = _unitOfWork.GetRepository<WasteReport>();
 
-            var entity = await repo.FirstOrDefaultAsync(x => x.Id == id);
+            var report = await repo.GetByIdAsync(id);
+            if (report == null || report.IsDeleted)
+                throw new Exception("WasteReport not found");
 
-            if (entity == null)
-                throw new BaseException.NotFoundException(
-                    "report_not_found",
-                    "Waste report not found."
-                );
-
-            entity.Description = dto.Description ?? entity.Description;
-
-            if (dto.Latitude.HasValue)
-                entity.Latitude = dto.Latitude.Value;
-
-            if (dto.Longitude.HasValue)
-                entity.Longitude = dto.Longitude.Value;
+            if (!string.IsNullOrWhiteSpace(dto.Description))
+                report.Description = dto.Description;
 
             if (!string.IsNullOrWhiteSpace(dto.Status) &&
                 Enum.TryParse<WasteReportStatus>(dto.Status, true, out var status))
             {
-                entity.Status = status;
+                report.Status = status;
             }
 
-            repo.Update(entity);
-            await _uow.SaveAsync();
+            report.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+            repo.Update(report);
+            await _unitOfWork.SaveAsync();
+
+            return MapToDto(report);
         }
 
-        public async Task DeleteAsync(Guid id)
-        {
-            var repo = _uow.GetRepository<WasteReport>();
-
-            var entity = await repo.FirstOrDefaultAsync(x => x.Id == id);
-
-            if (entity == null)
-                throw new BaseException.NotFoundException(
-                    "report_not_found",
-                    "Waste report not found."
-                );
-
-            repo.Delete(entity);
-            await _uow.SaveAsync();
-        }
-
+        // ================= GET BY ID =================
         public async Task<WasteReportResponseDto?> GetByIdAsync(Guid id)
         {
-            var repo = _uow.GetRepository<WasteReport>();
+            var repo = _unitOfWork.GetRepository<WasteReport>();
 
-            var entity = await repo.FirstOrDefaultAsync(x => x.Id == id);
+            var report = await repo
+                .NoTrackingEntities
+                .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
 
-            if (entity == null) return null;
-
-            return new WasteReportResponseDto
-            {
-                Id = entity.Id,
-                CitizenId = entity.CitizenId,
-                Description = entity.Description,
-                Latitude = entity.Latitude,
-                Longitude = entity.Longitude,
-                Status = entity.Status.ToString()
-            };
+            return report == null ? null : MapToDto(report);
         }
 
-        public async Task<PagedWasteReportDto> GetPagedAsync(WasteReportFilterDto filter)
+        // ================= PAGING =================
+        public async Task<PagedWasteReportDto> GetPagedAsync(
+            WasteReportFilterDto filter)
         {
-            var repo = _uow.GetRepository<WasteReport>();
+            var repo = _unitOfWork.GetRepository<WasteReport>();
 
-            var list = await repo.GetAllAsync();
-            var query = list.AsQueryable();
+            var query = repo.NoTrackingEntities
+                .Where(x => !x.IsDeleted);
 
-            if (filter.CitizenId.HasValue)
-                query = query.Where(x => x.CitizenId == filter.CitizenId.Value);
-
-            if (!string.IsNullOrWhiteSpace(filter.Status) &&
+            if (!string.IsNullOrEmpty(filter.Status) &&
                 Enum.TryParse<WasteReportStatus>(filter.Status, true, out var status))
             {
                 query = query.Where(x => x.Status == status);
             }
 
-            if (!string.IsNullOrWhiteSpace(filter.Keyword))
-            {
-                var keyword = filter.Keyword.ToLower();
-                query = query.Where(x =>
-                    x.Description != null &&
-                    x.Description.ToLower().Contains(keyword));
-            }
-
-            var totalCount = query.Count();
-
-            var items = query
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .Select(x => new WasteReportResponseDto
-                {
-                    Id = x.Id,
-                    CitizenId = x.CitizenId,
-                    Description = x.Description,
-                    Latitude = x.Latitude,
-                    Longitude = x.Longitude,
-                    Status = x.Status.ToString()
-                })
-                .ToList();
+            var pagedData = await repo.GetPagging(
+                query.OrderByDescending(x => x.CreatedTime),
+                filter.PageNumber,
+                filter.PageSize);
 
             return new PagedWasteReportDto
             {
-                TotalCount = totalCount,
+                TotalCount = pagedData.TotalCount,
                 PageNumber = filter.PageNumber,
                 PageSize = filter.PageSize,
-                Items = items
+                Items = pagedData.Items.Select(MapToDto).ToList()
+            };
+        }
+
+        // ================= DELETE (SOFT) =================
+        public async Task<bool> DeleteAsync(Guid id)
+        {
+            var repo = _unitOfWork.GetRepository<WasteReport>();
+
+            var report = await repo.GetByIdAsync(id);
+            if (report == null)
+                return false;
+
+            report.IsDeleted = true;
+            report.DeletedTime = DateTimeOffset.UtcNow;
+
+            repo.Update(report);
+            await _unitOfWork.SaveAsync();
+
+            return true;
+        }
+
+        // ================= MAPPER =================
+        private WasteReportResponseDto MapToDto(WasteReport report)
+        {
+            return new WasteReportResponseDto
+            {
+                Id = report.Id,
+                CitizenId = report.CitizenId,
+                Description = report.Description,
+                Latitude = report.Latitude,
+                Longitude = report.Longitude,
+                Status = report.Status.ToString(),
+                CreatedTime = report.CreatedTime
             };
         }
     }
