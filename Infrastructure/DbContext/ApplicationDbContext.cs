@@ -130,11 +130,23 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasIndex(e => e.BusinessCode)
-                    .IsUnique();
-
                 entity.Property(e => e.Name)
-                    .HasConversion<string>();
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.Category)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                entity.Property(e => e.Description)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                // Optional: nếu bạn muốn Name là unique
+                entity.HasIndex(e => e.Name)
+                    .IsUnique();
             });
 
             // ======================== CitizenPoint Configuration ========================

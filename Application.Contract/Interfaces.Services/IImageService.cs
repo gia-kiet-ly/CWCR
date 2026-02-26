@@ -1,6 +1,6 @@
 ﻿using Application.Contract.DTOs;
 
-namespace Application.Contract.Interfaces.ExternalService
+namespace Application.Contract.Interfaces.Services
 {
     public interface IImageService
     {

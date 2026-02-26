@@ -1,5 +1,6 @@
 ﻿using API;
 using API.Middleware;
+using Application;
 using Domain.Entities;
 using Infrastructure;
 using Infrastructure.DbContext;

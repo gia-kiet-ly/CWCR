@@ -1,4 +1,5 @@
-﻿using Application.Contract.Interfaces.Services;
+﻿using Application.Contract.Interfaces;
+using Application.Contract.Interfaces.Services;
 using Application.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,10 @@ namespace Application
     IConfiguration configuration)
         {
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IWasteReportService, WasteReportService>();
+            services.AddScoped<IImageService, ImageService>();
+            services.AddScoped<IWasteTypeService, WasteTypeService>();
+            services.AddScoped<IWasteImageService,WasteImageService>();
             return services;
         }
     }
