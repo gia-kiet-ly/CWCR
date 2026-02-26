@@ -1,9 +1,9 @@
 ﻿using Application.Contract.DTOs;
 using Application.Contract.Interfaces;
 using Application.Contract.Interfaces.Infrastructure;
+using Application.Contract.Interfaces.Services;
 using Core.Enum;
 using Domain.Entities;
-//using Google.Protobuf.WellKnownTypes;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
@@ -22,7 +22,10 @@ namespace Application.Services
             CreateWasteReportDto dto,
             Guid citizenId)
         {
-            var repo = _unitOfWork.GetRepository<WasteReport>();
+            if (!dto.Latitude.HasValue || !dto.Longitude.HasValue)
+                throw new Exception("Location is required");
+
+            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
 
             var report = new WasteReport
             {
@@ -33,7 +36,7 @@ namespace Application.Services
                 Status = WasteReportStatus.Pending
             };
 
-            await repo.InsertAsync(report);
+            await reportRepo.InsertAsync(report);
             await _unitOfWork.SaveAsync();
 
             return MapToDto(report);
@@ -44,24 +47,32 @@ namespace Application.Services
             Guid id,
             UpdateWasteReportDto dto)
         {
-            var repo = _unitOfWork.GetRepository<WasteReport>();
+            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
 
-            var report = await repo.GetByIdAsync(id);
+            var report = await reportRepo.GetByIdAsync(id);
+
             if (report == null || report.IsDeleted)
                 throw new Exception("WasteReport not found");
+
+            // Không cho sửa khi đã thu gom hoặc bị từ chối
+            if (report.Status == WasteReportStatus.Collected ||
+                report.Status == WasteReportStatus.Rejected)
+            {
+                throw new Exception("This report cannot be modified");
+            }
 
             if (!string.IsNullOrWhiteSpace(dto.Description))
                 report.Description = dto.Description;
 
             if (!string.IsNullOrWhiteSpace(dto.Status) &&
-                Enum.TryParse<WasteReportStatus>(dto.Status, true, out var status))
+                Enum.TryParse<WasteReportStatus>(dto.Status, true, out var newStatus))
             {
-                report.Status = status;
+                report.Status = newStatus;
             }
 
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-            repo.Update(report);
+            reportRepo.Update(report);
             await _unitOfWork.SaveAsync();
 
             return MapToDto(report);
@@ -72,8 +83,7 @@ namespace Application.Services
         {
             var repo = _unitOfWork.GetRepository<WasteReport>();
 
-            var report = await repo
-                .NoTrackingEntities
+            var report = await repo.NoTrackingEntities
                 .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
 
             return report == null ? null : MapToDto(report);
@@ -104,7 +114,9 @@ namespace Application.Services
                 TotalCount = pagedData.TotalCount,
                 PageNumber = filter.PageNumber,
                 PageSize = filter.PageSize,
-                Items = pagedData.Items.Select(MapToDto).ToList()
+                Items = pagedData.Items
+                    .Select(MapToDto)
+                    .ToList()
             };
         }
 
@@ -114,8 +126,13 @@ namespace Application.Services
             var repo = _unitOfWork.GetRepository<WasteReport>();
 
             var report = await repo.GetByIdAsync(id);
+
             if (report == null)
                 return false;
+
+            // Không cho xóa nếu đã thu gom
+            if (report.Status == WasteReportStatus.Collected)
+                throw new Exception("Collected report cannot be deleted");
 
             report.IsDeleted = true;
             report.DeletedTime = DateTimeOffset.UtcNow;
@@ -127,7 +144,7 @@ namespace Application.Services
         }
 
         // ================= MAPPER =================
-        private WasteReportResponseDto MapToDto(WasteReport report)
+        private static WasteReportResponseDto MapToDto(WasteReport report)
         {
             return new WasteReportResponseDto
             {

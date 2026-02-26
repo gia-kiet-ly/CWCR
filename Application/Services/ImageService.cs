@@ -1,9 +1,9 @@
 ﻿using Application.Contract.DTOs;
-using Application.Contract.Interfaces.ExternalService;
+using Application.Contract.Interfaces.Services;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 
-namespace Application.ExternalService
+namespace Application.Services
 {
     public class ImageService : IImageService
     {

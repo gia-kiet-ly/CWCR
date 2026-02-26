@@ -1,4 +1,5 @@
-﻿using Application.Contract.Interfaces.ExternalService;
+﻿
+using Application.Contract.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,7 +20,7 @@ namespace API.Controllers
         // Upload 1 ảnh
         // =============================
         [HttpPost("upload")]
-        [Authorize(AuthenticationSchemes = "Jwt")]
+        //[Authorize]
         public async Task<IActionResult> Upload(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -57,7 +58,7 @@ namespace API.Controllers
         // Upload nhiều ảnh
         // =============================
         [HttpPost("upload-multiple")]
-        [Authorize(AuthenticationSchemes = "Jwt")]
+        [Authorize]
         public async Task<IActionResult> UploadMultiple(List<IFormFile> files)
         {
             if (files == null || files.Count == 0)
@@ -125,7 +126,7 @@ namespace API.Controllers
         // Delete
         // =============================
         [HttpDelete("delete")]
-        [Authorize(AuthenticationSchemes = "Jwt")]
+        [Authorize]
         public async Task<IActionResult> Delete([FromQuery] string publicId)
         {
             if (string.IsNullOrWhiteSpace(publicId))

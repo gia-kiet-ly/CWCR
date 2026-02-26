@@ -7,7 +7,7 @@ using System.Security.Claims;
 
 namespace API.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class WasteReportController : ControllerBase
