@@ -25,6 +25,7 @@ namespace Application
             services.AddScoped<IRecyclingEnterpriseService, RecyclingEnterpriseService>();
             services.AddScoped<IEnterpriseWasteCapabilityService, EnterpriseWasteCapabilityService>();
             services.AddScoped<IEnterpriseServiceAreaService, EnterpriseServiceAreaService>();
+            services.AddScoped<IRecyclingStatisticService, RecyclingStatisticService>();
             return services;
         }
     }
