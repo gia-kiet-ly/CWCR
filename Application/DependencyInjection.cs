@@ -22,6 +22,7 @@ namespace Application
             services.AddScoped<IImageService, ImageService>();
             services.AddScoped<IWasteTypeService, WasteTypeService>();
             services.AddScoped<IWasteImageService,WasteImageService>();
+            services.AddScoped<IRecyclingEnterpriseService, RecyclingEnterpriseService>();
             return services;
         }
     }

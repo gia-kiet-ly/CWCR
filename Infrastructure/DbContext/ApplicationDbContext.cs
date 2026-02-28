@@ -261,7 +261,21 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Ignore(e => e.Representative);
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Address)
+                    .IsRequired()
+                    .HasMaxLength(300);
+
+                entity.Property(e => e.Status)
+                    .HasConversion<string>();
+
+                entity.HasOne(e => e.Representative)
+                    .WithMany() // nếu chưa có navigation ngược
+                    .HasForeignKey(e => e.RepresentativeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ======================== EnterpriseServiceArea Configuration ========================

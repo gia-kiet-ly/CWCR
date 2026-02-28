@@ -8,7 +8,9 @@ namespace Core.Enum
 {
     public enum EnterpriseStatus
     {
-        Active,
-        Suspended
+        Pending = 0,      // Chờ admin duyệt
+        Active = 1,       // Đang hoạt động
+        Suspended = 2,    // Bị tạm khóa
+        Rejected = 3      // Bị từ chối
     }
 }
