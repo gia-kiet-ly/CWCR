@@ -3,6 +3,7 @@ using API.Middleware;
 using Application;
 using Domain.Entities;
 using Infrastructure;
+using Infrastructure.DataSeeds;
 using Infrastructure.DbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -81,6 +82,12 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+//Data Seed
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+    await RoleSeeder.SeedAsync(roleManager);
+}
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
