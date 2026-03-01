@@ -15,7 +15,8 @@ namespace Infrastructure.DbContext
         }
 
         // ======================== DbSets ========================
-
+        //Enterprise
+        public DbSet<EnterpriseProfile> EnterpriseProfiles { get; set; }
         // Waste Management
         public DbSet<WasteReport> WasteReports { get; set; }
         public DbSet<WasteReportWaste> WasteReportWastes { get; set; }

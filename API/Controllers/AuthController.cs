@@ -4,7 +4,6 @@ using Core.Utils;
 using Domain.Base;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -25,30 +24,50 @@ namespace API.Controllers
         {
             var data = await _auth.RegisterAsync(request);
 
+            var message = request.Role == Infrastructure.Repo.SystemRoles.RecyclingEnterprise
+                ? "Đăng ký thành công, vui lòng chờ admin phê duyệt"
+                : "Đăng ký thành công";
+
             var response = new BaseResponse<RegisterResponseDto>(
                 StatusCodeHelper.Created,
                 StatusCodeHelper.Created.Name(),
                 data,
-                "Đăng ký thành công"
+                message
             );
 
-            return StatusCode(201, response);
+            return StatusCode(StatusCodes.Status201Created, response);
         }
 
         [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
-            var result = await _auth.LoginAsync(request);
-            return Ok(result);
+            var data = await _auth.LoginAsync(request);
+
+            var response = new BaseResponse<AuthResponseDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Đăng nhập thành công"
+            );
+
+            return Ok(response);
         }
 
         [AllowAnonymous]
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] RefreshRequestDto request)
         {
-            var result = await _auth.RefreshAsync(request.RefreshToken);
-            return Ok(result);
+            var data = await _auth.RefreshAsync(request.RefreshToken);
+
+            var response = new BaseResponse<AuthResponseDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Refresh token thành công"
+            );
+
+            return Ok(response);
         }
     }
 }
