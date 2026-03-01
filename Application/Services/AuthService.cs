@@ -27,7 +27,7 @@ namespace Application.Services
         // ============================
         // REGISTER
         // ============================
-        public async Task RegisterAsync(RegisterRequestDto request)
+        public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto request)
         {
             var existedUser = await _userManager.FindByEmailAsync(request.Email);
             if (existedUser != null)
@@ -36,24 +36,18 @@ namespace Application.Services
                     $"Email {request.Email} already exists."
                 );
 
-            // ✅ Validate role whitelist (không cho register Admin)
-            var allowedRoles = new[]
-            {
-                "Citizen",
-                "Collector",
-                "Recycling Enterprise"
-            };
-
+            var allowedRoles = new[] { "Citizen", "Collector", "Recycling Enterprise" };
             if (!allowedRoles.Contains(request.Role))
-                throw new BaseException.BadRequestException(
-                    "invalid_role",
-                    "Role is not allowed."
-                );
+                throw new BaseException.BadRequestException("invalid_role", "Role is not allowed.");
 
             var user = new ApplicationUser
             {
                 UserName = request.Email,
-                Email = request.Email
+                Email = request.Email,
+                FullName = request.FullName,
+                PhoneNumber = request.Phone,
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -70,8 +64,27 @@ namespace Application.Services
                 throw new BaseException.ValidationException(errors);
             }
 
-            // ✅ Gán role cho user
-            await _userManager.AddToRoleAsync(user, request.Role);
+            var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
+            if (!roleResult.Succeeded)
+            {
+                var errors = roleResult.Errors
+                    .Select(e => new KeyValuePair<string, ICollection<string>>(
+                        e.Code,
+                        new List<string> { e.Description }
+                    ))
+                    .ToList();
+
+                throw new BaseException.ValidationException(errors);
+            }
+
+            return new RegisterResponseDto
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                FullName = user.FullName ?? "",
+                Role = request.Role,
+                CreatedAt = user.CreatedAt
+            };
         }
 
         // ============================

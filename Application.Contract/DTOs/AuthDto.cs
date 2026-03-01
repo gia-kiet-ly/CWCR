@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace Application.Contract.DTOs
 {
+    //Login
     public class LoginRequestDto
     {
         [Required]
@@ -16,6 +17,8 @@ namespace Application.Contract.DTOs
         [Required]
         public string Password { get; set; } = default!;
     }
+
+    //Register
     public class RegisterRequestDto
     {
         [Required]
@@ -28,13 +31,34 @@ namespace Application.Contract.DTOs
 
         [Required]
         public string Role { get; set; } = default!;
+
+        [Required]
+        public string FullName { get; set; } = default!;
+
+        [Required]
+        [Phone]
+        public string Phone { get; set; } = default!;
+
+        public bool IsActive { get; set; } = true;
     }
+    public class RegisterResponseDto
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = default!;
+        public string FullName { get; set; } = default!;
+        public string Role { get; set; } = default!;
+        public DateTime CreatedAt { get; set; }
+    }
+
+    //Login
     public class AuthResponseDto
     {
         public string AccessToken { get; set; } = default!;
         public string RefreshToken { get; set; } = default!;
         public DateTime ExpiredAt { get; set; }
     }
+
+    //Token
     public class RefreshRequestDto
     {
         [Required]

@@ -1,5 +1,7 @@
 ﻿using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Services;
+using Core.Utils;
+using Domain.Base;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -21,8 +23,16 @@ namespace API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
-            await _auth.RegisterAsync(request);
-            return Ok("Register success");
+            var data = await _auth.RegisterAsync(request);
+
+            var response = new BaseResponse<RegisterResponseDto>(
+                StatusCodeHelper.Created,
+                StatusCodeHelper.Created.Name(),
+                data,
+                "Đăng ký thành công"
+            );
+
+            return StatusCode(201, response);
         }
 
         [AllowAnonymous]
