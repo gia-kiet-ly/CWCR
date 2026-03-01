@@ -5,11 +5,6 @@ using Domain.Base;
 using Domain.Entities;
 using Infrastructure.Repo;
 using Microsoft.AspNetCore.Identity;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Services
 {
@@ -29,6 +24,9 @@ namespace Application.Services
             _uow = uow;
         }
 
+        // ============================
+        // REGISTER
+        // ============================
         public async Task RegisterAsync(RegisterRequestDto request)
         {
             var existedUser = await _userManager.FindByEmailAsync(request.Email);
@@ -36,6 +34,20 @@ namespace Application.Services
                 throw new BaseException.BadRequestException(
                     "email_already_exists",
                     $"Email {request.Email} already exists."
+                );
+
+            // ✅ Validate role whitelist (không cho register Admin)
+            var allowedRoles = new[]
+            {
+                "Citizen",
+                "Collector",
+                "Recycling Enterprise"
+            };
+
+            if (!allowedRoles.Contains(request.Role))
+                throw new BaseException.BadRequestException(
+                    "invalid_role",
+                    "Role is not allowed."
                 );
 
             var user = new ApplicationUser
@@ -57,8 +69,14 @@ namespace Application.Services
 
                 throw new BaseException.ValidationException(errors);
             }
+
+            // ✅ Gán role cho user
+            await _userManager.AddToRoleAsync(user, request.Role);
         }
 
+        // ============================
+        // LOGIN
+        // ============================
         public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
         {
             // 1️⃣ Kiểm tra user tồn tại
@@ -79,11 +97,15 @@ namespace Application.Services
                     "Email or password is incorrect."
                 );
 
-            // 3️⃣ Generate Access Token
-            var (accessToken, expiredAt) =
-                _jwt.GenerateToken(user.Id, user.Email!, "");
+            // ✅ Lấy role của user
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "";
 
-            // 4️⃣ Generate Refresh Token (RAW)
+            // ✅ Generate Access Token có role
+            var (accessToken, expiredAt) =
+                _jwt.GenerateToken(user.Id, user.Email!, role);
+
+            // Generate refresh token (RAW)
             var rawRefreshToken = RefreshTokenGenerator.Generate();
 
             // 5️⃣ Hash refresh token trước khi lưu DB
@@ -112,6 +134,9 @@ namespace Application.Services
             };
         }
 
+        // ============================
+        // REFRESH TOKEN
+        // ============================
         public async Task<AuthResponseDto> RefreshAsync(string refreshToken)
         {
             var refreshRepo = _uow.GetRepository<RefreshToken>();
@@ -144,8 +169,12 @@ namespace Application.Services
                     "User not found."
                 );
 
+            // ✅ Lấy role lại
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "";
+
             var (newAccessToken, expiredAt) =
-                _jwt.GenerateToken(user.Id, user.Email!, "");
+                _jwt.GenerateToken(user.Id, user.Email!, role);
 
             var rawRefreshToken = RefreshTokenGenerator.Generate();
             var refreshTokenHash = RefreshTokenHasher.Hash(rawRefreshToken);

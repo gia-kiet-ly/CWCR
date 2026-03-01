@@ -17,6 +17,7 @@ namespace API.Controllers
             _auth = auth;
         }
 
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
@@ -24,6 +25,7 @@ namespace API.Controllers
             return Ok("Register success");
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
@@ -31,6 +33,7 @@ namespace API.Controllers
             return Ok(result);
         }
 
+        [AllowAnonymous]
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] RefreshRequestDto request)
         {
