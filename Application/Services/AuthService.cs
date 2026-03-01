@@ -36,9 +36,33 @@ namespace Application.Services
                     $"Email {request.Email} already exists."
                 );
 
-            var allowedRoles = new[] { "Citizen", "Collector", "Recycling Enterprise" };
+            // ✅ only 2 roles
+            var allowedRoles = new[] { "Citizen", "Enterprise" };
             if (!allowedRoles.Contains(request.Role))
-                throw new BaseException.BadRequestException("invalid_role", "Role is not allowed.");
+                throw new BaseException.BadRequestException(
+                    "invalid_role",
+                    "Role is not allowed."
+                );
+
+            // ✅ Enterprise: require enterpriseInfo + validate tax code length
+            if (request.Role == "Enterprise")
+            {
+                if (request.EnterpriseInfo == null)
+                    throw new BaseException.BadRequestException(
+                        "enterprise_info_required",
+                        "EnterpriseInfo is required for Enterprise registration."
+                    );
+
+                var tax = request.EnterpriseInfo.TaxCode?.Trim() ?? "";
+                if (tax.Length < 10 || tax.Length > 13)
+                    throw new BaseException.BadRequestException(
+                        "invalid_tax_code",
+                        "TaxCode must be 10 to 13 characters."
+                    );
+            }
+
+            // ✅ BE override IsActive: Citizen active now, Enterprise pending
+            var isActive = request.Role == "Citizen";
 
             var user = new ApplicationUser
             {
@@ -46,15 +70,14 @@ namespace Application.Services
                 Email = request.Email,
                 FullName = request.FullName,
                 PhoneNumber = request.Phone,
-                IsActive = request.IsActive,
+                IsActive = isActive,
                 CreatedAt = DateTime.UtcNow
             };
 
-            var result = await _userManager.CreateAsync(user, request.Password);
-
-            if (!result.Succeeded)
+            var createResult = await _userManager.CreateAsync(user, request.Password);
+            if (!createResult.Succeeded)
             {
-                var errors = result.Errors
+                var errors = createResult.Errors
                     .Select(e => new KeyValuePair<string, ICollection<string>>(
                         e.Code,
                         new List<string> { e.Description }
@@ -64,9 +87,12 @@ namespace Application.Services
                 throw new BaseException.ValidationException(errors);
             }
 
+            // ✅ Add role; if fail -> rollback user
             var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
             if (!roleResult.Succeeded)
             {
+                await _userManager.DeleteAsync(user); // rollback
+
                 var errors = roleResult.Errors
                     .Select(e => new KeyValuePair<string, ICollection<string>>(
                         e.Code,
@@ -75,6 +101,41 @@ namespace Application.Services
                     .ToList();
 
                 throw new BaseException.ValidationException(errors);
+            }
+
+            // ✅ If Enterprise: create profile Pending; if fail -> rollback user
+            if (request.Role == "Enterprise")
+            {
+                try
+                {
+                    var info = request.EnterpriseInfo!;
+
+                    var enterpriseRepo = _uow.GetRepository<EnterpriseProfile>();
+
+                    var profile = new EnterpriseProfile
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = user.Id,
+
+                        EnterpriseName = info.EnterpriseName,
+                        TaxCode = info.TaxCode,
+                        Address = info.Address,
+                        LegalRepresentative = info.LegalRepresentative,
+                        RepresentativePosition = info.RepresentativePosition,
+                        EnvironmentLicenseFileId = info.EnvironmentLicenseFileId,
+
+                        Status = Core.Enum.EnterpriseApprovalStatus.PendingApproval,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await enterpriseRepo.InsertAsync(profile);
+                    await _uow.SaveAsync();
+                }
+                catch
+                {
+                    await _userManager.DeleteAsync(user); // rollback
+                    throw;
+                }
             }
 
             return new RegisterResponseDto
@@ -92,7 +153,6 @@ namespace Application.Services
         // ============================
         public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
         {
-            // 1️⃣ Kiểm tra user tồn tại
             var user = await _userManager.FindByEmailAsync(request.Email);
 
             if (user == null)
@@ -101,7 +161,7 @@ namespace Application.Services
                     "Email or password is incorrect."
                 );
 
-            // 2️⃣ Kiểm tra password
+            // ✅ check password first
             var valid = await _userManager.CheckPasswordAsync(user, request.Password);
 
             if (!valid)
@@ -110,18 +170,23 @@ namespace Application.Services
                     "Email or password is incorrect."
                 );
 
-            // ✅ Lấy role của user
+            // ✅ then check active (avoid leaking status)
+            if (!user.IsActive)
+                throw new BaseException.UnauthorizedException(
+                    "account_pending",
+                    "Account is pending admin approval."
+                );
+
+            // ✅ get role
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
-            // ✅ Generate Access Token có role
+            // ✅ token
             var (accessToken, expiredAt) =
                 _jwt.GenerateToken(user.Id, user.Email!, role);
 
-            // Generate refresh token (RAW)
+            // refresh token raw
             var rawRefreshToken = RefreshTokenGenerator.Generate();
-
-            // 5️⃣ Hash refresh token trước khi lưu DB
             var refreshTokenHash = RefreshTokenHasher.Hash(rawRefreshToken);
 
             var refreshEntity = new RefreshToken
@@ -133,12 +198,10 @@ namespace Application.Services
                 UserId = user.Id
             };
 
-            // 6️⃣ Lưu DB
             var refreshRepo = _uow.GetRepository<RefreshToken>();
             await refreshRepo.InsertAsync(refreshEntity);
             await _uow.SaveAsync();
 
-            // 7️⃣ Trả raw refresh token về client
             return new AuthResponseDto
             {
                 AccessToken = accessToken,
@@ -170,7 +233,7 @@ namespace Application.Services
                 );
             }
 
-            // revoke token cũ
+            // revoke old
             storedToken.IsRevoked = true;
             refreshRepo.Update(storedToken);
 
@@ -182,7 +245,9 @@ namespace Application.Services
                     "User not found."
                 );
 
-            // ✅ Lấy role lại
+            // ✅ optional: also block refresh if not active
+            // if (!user.IsActive) throw new BaseException.UnauthorizedException("account_pending", "Account is pending admin approval.");
+
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
