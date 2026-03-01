@@ -37,7 +37,7 @@ namespace Application.Services
                 );
 
             // ✅ only 2 roles
-            var allowedRoles = new[] { "Citizen", "Enterprise" };
+            var allowedRoles = new[] { SystemRoles.Citizen, SystemRoles.RecyclingEnterprise };
             if (!allowedRoles.Contains(request.Role))
                 throw new BaseException.BadRequestException(
                     "invalid_role",
@@ -45,7 +45,7 @@ namespace Application.Services
                 );
 
             // ✅ Enterprise: require enterpriseInfo + validate tax code length
-            if (request.Role == "Enterprise")
+            if (request.Role == SystemRoles.RecyclingEnterprise)
             {
                 if (request.EnterpriseInfo == null)
                     throw new BaseException.BadRequestException(
@@ -62,7 +62,7 @@ namespace Application.Services
             }
 
             // ✅ BE override IsActive: Citizen active now, Enterprise pending
-            var isActive = request.Role == "Citizen";
+            var isActive = request.Role == SystemRoles.Citizen;
 
             var user = new ApplicationUser
             {
@@ -104,7 +104,7 @@ namespace Application.Services
             }
 
             // ✅ If Enterprise: create profile Pending; if fail -> rollback user
-            if (request.Role == "Enterprise")
+            if (request.Role == SystemRoles.RecyclingEnterprise)
             {
                 try
                 {
@@ -245,8 +245,12 @@ namespace Application.Services
                     "User not found."
                 );
 
-            // ✅ optional: also block refresh if not active
-            // if (!user.IsActive) throw new BaseException.UnauthorizedException("account_pending", "Account is pending admin approval.");
+            // ✅ block refresh if not active (Enterprise pending)
+            if (!user.IsActive)
+                throw new BaseException.UnauthorizedException(
+                    "account_pending",
+                    "Account is pending admin approval."
+                );
 
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
