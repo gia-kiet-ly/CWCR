@@ -79,7 +79,16 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("OpenCors", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 var app = builder.Build();
 
 //Data Seed
@@ -96,7 +105,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("OpenCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<CustomErrorMiddleware>();
