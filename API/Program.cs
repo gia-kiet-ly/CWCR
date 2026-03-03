@@ -41,7 +41,8 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
+            Encoding.UTF8.GetBytes(jwtSettings["Key"]!)),
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
     };
 });
 
@@ -79,6 +80,8 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+//CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("OpenCors", policy =>
@@ -89,6 +92,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
 var app = builder.Build();
 
 //Data Seed

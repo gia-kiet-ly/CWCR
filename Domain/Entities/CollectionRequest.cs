@@ -5,15 +5,16 @@ namespace Domain.Entities
 {
     public class CollectionRequest : BaseEntity
     {
-        public Guid ReportId { get; set; }
-        public WasteReport Report { get; set; }
+        public Guid WasteReportWasteId { get; set; }
+        public WasteReportWaste WasteReportWaste { get; set; } = null!;
 
         public Guid EnterpriseId { get; set; }
-        public RecyclingEnterprise Enterprise { get; set; }
-        public ApplicationUser Citizen { get; set; } = null!;
-        public WasteType WasteType { get; set; } = null!;
+        public RecyclingEnterprise Enterprise { get; set; } = null!;
+
         public CollectionRequestStatus Status { get; set; }
         public int? PriorityScore { get; set; }
+
+        public ICollection<CollectorAssignment> Assignments { get; set; } = new List<CollectorAssignment>();
     }
 
 }

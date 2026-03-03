@@ -29,6 +29,7 @@ namespace Application.Services
         // ============================
         public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto request)
         {
+            // check email exists
             var existedUser = await _userManager.FindByEmailAsync(request.Email);
             if (existedUser != null)
                 throw new BaseException.BadRequestException(
@@ -36,7 +37,7 @@ namespace Application.Services
                     $"Email {request.Email} already exists."
                 );
 
-            // ✅ only 2 roles
+            // allow only 2 roles
             var allowedRoles = new[] { SystemRoles.Citizen, SystemRoles.RecyclingEnterprise };
             if (!allowedRoles.Contains(request.Role))
                 throw new BaseException.BadRequestException(
@@ -44,7 +45,7 @@ namespace Application.Services
                     "Role is not allowed."
                 );
 
-            // ✅ Enterprise: require enterpriseInfo + validate tax code length
+            // enterprise validation
             if (request.Role == SystemRoles.RecyclingEnterprise)
             {
                 if (request.EnterpriseInfo == null)
@@ -61,7 +62,9 @@ namespace Application.Services
                     );
             }
 
-            // ✅ BE override IsActive: Citizen active now, Enterprise pending
+            // BE override IsActive:
+            // - Citizen active now
+            // - Enterprise pending approval => inactive
             var isActive = request.Role == SystemRoles.Citizen;
 
             var user = new ApplicationUser
@@ -87,11 +90,11 @@ namespace Application.Services
                 throw new BaseException.ValidationException(errors);
             }
 
-            // ✅ Add role; if fail -> rollback user
+            // add role; if fail -> rollback user
             var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
             if (!roleResult.Succeeded)
             {
-                await _userManager.DeleteAsync(user); // rollback
+                await _userManager.DeleteAsync(user);
 
                 var errors = roleResult.Errors
                     .Select(e => new KeyValuePair<string, ICollection<string>>(
@@ -103,37 +106,48 @@ namespace Application.Services
                 throw new BaseException.ValidationException(errors);
             }
 
-            // ✅ If Enterprise: create profile Pending; if fail -> rollback user
+            // if Enterprise: create RecyclingEnterprise profile (Pending Approval)
             if (request.Role == SystemRoles.RecyclingEnterprise)
             {
                 try
                 {
                     var info = request.EnterpriseInfo!;
 
-                    var enterpriseRepo = _uow.GetRepository<EnterpriseProfile>();
+                    var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
 
-                    var profile = new EnterpriseProfile
+                    var enterprise = new RecyclingEnterprise
                     {
+                        // Nếu BaseEntity tự set Id thì bỏ dòng này,
+                        // còn nếu không thì giữ (an toàn).
                         Id = Guid.NewGuid(),
-                        UserId = user.Id,
 
-                        EnterpriseName = info.EnterpriseName,
-                        TaxCode = info.TaxCode,
-                        Address = info.Address,
-                        LegalRepresentative = info.LegalRepresentative,
-                        RepresentativePosition = info.RepresentativePosition,
+                        UserId = user.Id,
+                        // RepresentativeId optional - có thể set = user.Id nếu bạn coi user đăng ký là đại diện
+                        RepresentativeId = user.Id,
+
+                        Name = info.EnterpriseName.Trim(),
+                        TaxCode = info.TaxCode.Trim(),
+                        Address = info.Address.Trim(),
+                        LegalRepresentative = info.LegalRepresentative.Trim(),
+                        RepresentativePosition = info.RepresentativePosition.Trim(),
                         EnvironmentLicenseFileId = info.EnvironmentLicenseFileId,
 
-                        Status = Core.Enum.EnterpriseApprovalStatus.PendingApproval,
-                        CreatedAt = DateTime.UtcNow
+                        ApprovalStatus = Core.Enum.EnterpriseApprovalStatus.PendingApproval,
+
+                        // Nếu muốn enterprise chưa được vận hành cho tới khi duyệt:
+                        // OperationalStatus = Core.Enum.EnterpriseStatus.Inactive,
+                        OperationalStatus = Core.Enum.EnterpriseStatus.Active,
+
+                        CreatedTime = DateTimeOffset.UtcNow
                     };
 
-                    await enterpriseRepo.InsertAsync(profile);
+                    await enterpriseRepo.InsertAsync(enterprise);
                     await _uow.SaveAsync();
                 }
                 catch
                 {
-                    await _userManager.DeleteAsync(user); // rollback
+                    // rollback user if enterprise creation failed
+                    await _userManager.DeleteAsync(user);
                     throw;
                 }
             }
@@ -154,38 +168,32 @@ namespace Application.Services
         public async Task<AuthResponseDto> LoginAsync(LoginRequestDto request)
         {
             var user = await _userManager.FindByEmailAsync(request.Email);
-
             if (user == null)
                 throw new BaseException.UnauthorizedException(
                     "invalid_credentials",
                     "Email or password is incorrect."
                 );
 
-            // ✅ check password first
             var valid = await _userManager.CheckPasswordAsync(user, request.Password);
-
             if (!valid)
                 throw new BaseException.UnauthorizedException(
                     "invalid_credentials",
                     "Email or password is incorrect."
                 );
 
-            // ✅ then check active (avoid leaking status)
+            // Do not leak which condition failed; but you already separated checks, it's fine for MVP.
             if (!user.IsActive)
                 throw new BaseException.UnauthorizedException(
                     "account_pending",
                     "Account is pending admin approval."
                 );
 
-            // ✅ get role
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
-            // ✅ token
-            var (accessToken, expiredAt) =
-                _jwt.GenerateToken(user.Id, user.Email!, role);
+            var (accessToken, expiredAt) = _jwt.GenerateToken(user.Id, user.Email!, role);
 
-            // refresh token raw
+            // Refresh token
             var rawRefreshToken = RefreshTokenGenerator.Generate();
             var refreshTokenHash = RefreshTokenHasher.Hash(rawRefreshToken);
 
@@ -219,9 +227,7 @@ namespace Application.Services
 
             var hashedToken = RefreshTokenHasher.Hash(refreshToken);
 
-            var storedToken = await refreshRepo.FirstOrDefaultAsync(
-                r => r.TokenHash == hashedToken
-            );
+            var storedToken = await refreshRepo.FirstOrDefaultAsync(r => r.TokenHash == hashedToken);
 
             if (storedToken == null ||
                 storedToken.IsRevoked ||
@@ -238,14 +244,12 @@ namespace Application.Services
             refreshRepo.Update(storedToken);
 
             var user = await _userManager.FindByIdAsync(storedToken.UserId.ToString());
-
             if (user == null)
                 throw new BaseException.UnauthorizedException(
                     "user_not_found",
                     "User not found."
                 );
 
-            // ✅ block refresh if not active (Enterprise pending)
             if (!user.IsActive)
                 throw new BaseException.UnauthorizedException(
                     "account_pending",
@@ -255,9 +259,9 @@ namespace Application.Services
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "";
 
-            var (newAccessToken, expiredAt) =
-                _jwt.GenerateToken(user.Id, user.Email!, role);
+            var (newAccessToken, expiredAt) = _jwt.GenerateToken(user.Id, user.Email!, role);
 
+            // issue new refresh token
             var rawRefreshToken = RefreshTokenGenerator.Generate();
             var refreshTokenHash = RefreshTokenHasher.Hash(rawRefreshToken);
 

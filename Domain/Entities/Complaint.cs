@@ -13,7 +13,7 @@ namespace Domain.Entities
 
         public ComplaintType Type { get; set; }
         public ComplaintStatus Status { get; set; }
-        public ICollection<DisputeResolution> Resolutions { get; set; }
+        public ICollection<DisputeResolution> Resolutions { get; set; } = new List<DisputeResolution>();
         public ApplicationUser Complainant { get; set; } = null!;
         public CollectionRequest? CollectionRequest { get; set; }
         public string Content { get; set; } = null!;
