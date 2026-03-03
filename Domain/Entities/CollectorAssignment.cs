@@ -6,13 +6,16 @@ namespace Domain.Entities
     public class CollectorAssignment : BaseEntity
     {
         public Guid RequestId { get; set; }
-        public CollectionRequest Request { get; set; }
+        public CollectionRequest Request { get; set; } = null!;
 
         public Guid CollectorId { get; set; }
-        public CollectorProfile Collector { get; set; }
+        public CollectorProfile Collector { get; set; } = null!;
 
         public AssignmentStatus Status { get; set; }
-        public CollectionRequest CollectionRequest { get; set; } = null!;
+        public string? CollectedNote { get; set; }
+        public DateTimeOffset? CollectedAt { get; set; }  // optional nhưng nên có
+        // ✅ Proofs theo assignment
+        public ICollection<CollectionProof> Proofs { get; set; } = new List<CollectionProof>();
     }
 
 }

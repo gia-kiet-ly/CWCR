@@ -15,8 +15,7 @@ namespace Infrastructure.DbContext
         }
 
         // ======================== DbSets ========================
-        //Enterprise
-        public DbSet<EnterpriseProfile> EnterpriseProfiles { get; set; }
+
         // Waste Management
         public DbSet<WasteReport> WasteReports { get; set; }
         public DbSet<WasteReportWaste> WasteReportWastes { get; set; }
@@ -173,18 +172,30 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasOne(e => e.Report)
+                entity.HasOne(e => e.WasteReportWaste)
                     .WithMany()
-                    .HasForeignKey(e => e.ReportId)
+                    .HasForeignKey(e => e.WasteReportWasteId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Enterprise)
-                    .WithMany()
+                    .WithMany(e => e.CollectionRequests)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Ignore(e => e.Citizen);
-                entity.Ignore(e => e.WasteType);
+                entity.Property(e => e.Status)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                entity.HasMany(e => e.Assignments)
+                    .WithOne(a => a.Request)
+                    .HasForeignKey(a => a.RequestId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // MVP: 1 món rác -> 1 request
+                entity.HasIndex(e => e.WasteReportWasteId).IsUnique();
+
+                // dashboard enterprise
+                entity.HasIndex(e => new { e.EnterpriseId, e.Status });
             });
 
             // ======================== CollectorAssignment Configuration ========================
@@ -194,16 +205,30 @@ namespace Infrastructure.DbContext
                 entity.HasKey(e => e.Id);
 
                 entity.HasOne(e => e.Request)
-                    .WithMany()
+                    .WithMany(r => r.Assignments)
                     .HasForeignKey(e => e.RequestId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Collector)
-                    .WithMany()
+                    .WithMany(c => c.Assignments)
                     .HasForeignKey(e => e.CollectorId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Ignore(e => e.CollectionRequest);
+                entity.Property(e => e.Status)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                entity.HasMany(e => e.Proofs)
+                    .WithOne(p => p.Assignment)
+                    .HasForeignKey(p => p.AssignmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.CollectorId, e.Status });
+
+                // MVP: không re-assign
+                entity.HasIndex(e => e.RequestId).IsUnique();
+
+                entity.Property(e => e.CollectedNote).HasMaxLength(1000);
             });
 
             // ======================== CollectorProfile Configuration ========================
@@ -221,6 +246,9 @@ namespace Infrastructure.DbContext
                     .WithMany()
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                // Optional nhưng nên có: unique để 1 user chỉ có 1 profile collector
+                entity.HasIndex(e => e.CollectorId).IsUnique();
             });
 
             // ======================== CollectionProof Configuration ========================
@@ -229,12 +257,21 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
+                entity.Property(e => e.ImageUrl).IsRequired();
+                entity.Property(e => e.PublicId).IsRequired();
+
+                entity.Property(e => e.ReviewStatus)
+                    .HasConversion<string>()
+                    .IsRequired();
+
                 entity.HasOne(e => e.Assignment)
-                    .WithMany()
+                    .WithMany(a => a.Proofs)
                     .HasForeignKey(e => e.AssignmentId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Ignore(e => e.CollectionRequest);
+                entity.HasIndex(e => e.AssignmentId);
+                entity.HasIndex(e => e.PublicId);
+                entity.HasIndex(e => e.ReviewStatus);
             });
 
             // ======================== PointRule Configuration ========================
@@ -262,19 +299,25 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Property(e => e.Name)
-                    .IsRequired()
-                    .HasMaxLength(200);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Address).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.LegalRepresentative).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.RepresentativePosition).IsRequired().HasMaxLength(150);
 
-                entity.Property(e => e.Address)
-                    .IsRequired()
-                    .HasMaxLength(300);
+                entity.Property(e => e.ApprovalStatus).HasConversion<string>().IsRequired();
+                entity.Property(e => e.OperationalStatus).HasConversion<string>().IsRequired();
 
-                entity.Property(e => e.Status)
-                    .HasConversion<string>();
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // MVP: 1 user account = 1 enterprise record
+                entity.HasIndex(e => e.UserId).IsUnique();
 
                 entity.HasOne(e => e.Representative)
-                    .WithMany() // nếu chưa có navigation ngược
+                    .WithMany()
                     .HasForeignKey(e => e.RepresentativeId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
@@ -285,10 +328,14 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
+                entity.Property(e => e.RegionCode).IsRequired().HasMaxLength(50);
+
                 entity.HasOne(e => e.Enterprise)
-                    .WithMany()
+                    .WithMany(e => e.ServiceAreas)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.EnterpriseId, e.RegionCode }).IsUnique();
             });
 
             // ======================== EnterpriseWasteCapability Configuration ========================
@@ -297,11 +344,10 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Property(e => e.DailyCapacityKg)
-                    .HasPrecision(18, 2);
+                entity.Property(e => e.DailyCapacityKg).HasPrecision(18, 2);
 
                 entity.HasOne(e => e.Enterprise)
-                    .WithMany()
+                    .WithMany(e => e.WasteCapabilities)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Cascade);
 
@@ -309,6 +355,9 @@ namespace Infrastructure.DbContext
                     .WithMany()
                     .HasForeignKey(e => e.WasteTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.EnterpriseId, e.WasteTypeId }).IsUnique();
+                entity.HasIndex(e => e.WasteTypeId);
             });
 
             // ======================== RecyclingStatistic Configuration ========================
@@ -349,8 +398,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(r => r.ComplaintId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                entity.Ignore(e => e.Complainant);
-                entity.Ignore(e => e.CollectionRequest);
             });
 
             // ======================== DisputeResolution Configuration ========================
