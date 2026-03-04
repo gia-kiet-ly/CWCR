@@ -24,7 +24,7 @@ namespace Application.Contract.DTOs
         public string? Note { get; set; }
 
         // Upload nhiều ảnh
-        public List<IFormFile> Images { get; set; } = new();
+        public List<string> Images { get; set; } = new();
     }
 
     // =============================
