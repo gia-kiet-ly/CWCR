@@ -1,6 +1,8 @@
 ﻿using API;
 using API.Middleware;
 using Application;
+using Application.Contract.Interfaces.Services;
+using Application.Services;
 using Domain.Entities;
 using Infrastructure;
 using Infrastructure.DataSeeds;
@@ -14,11 +16,20 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
 
 // INFRASTRUCTURE
 builder.Services.AddConfig(builder.Configuration);
+
+// ✅ NEW: RegionCode resolver (reverse geocode lat/long -> RegionCode)
+builder.Services.AddHttpClient<IRegionCodeResolver, RegionCodeResolver>(client =>
+{
+    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+
+    // Nominatim requires a valid User-Agent
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("EcoCollect/1.0 (contact: ntvq88@gmail.com)");
+});
 
 // JWT
 builder.Services.AddAuthentication(options =>
@@ -101,6 +112,7 @@ using (var scope = app.Services.CreateScope())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     await RoleSeeder.SeedAsync(roleManager);
 }
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

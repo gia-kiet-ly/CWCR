@@ -12,9 +12,20 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _unitOfWork;
 
-        public WasteReportService(IUnitOfWork unitOfWork)
+        // ✅ BE tự tính RegionCode từ lat/long
+        private readonly IRegionCodeResolver _regionCodeResolver;
+
+        // ✅ NEW: tạo CollectionRequest sau khi tạo report
+        private readonly ICollectionRequestService _collectionRequestService;
+
+        public WasteReportService(
+            IUnitOfWork unitOfWork,
+            IRegionCodeResolver regionCodeResolver,
+            ICollectionRequestService collectionRequestService)
         {
             _unitOfWork = unitOfWork;
+            _regionCodeResolver = regionCodeResolver;
+            _collectionRequestService = collectionRequestService;
         }
 
         // ================= CREATE =================
@@ -29,6 +40,20 @@ namespace Application.Services
             var wasteItemRepo = _unitOfWork.GetRepository<WasteReportWaste>();
             var imageRepo = _unitOfWork.GetRepository<WasteImage>();
 
+            // ✅ BE reverse geocode -> RegionCode (Quận)
+            // Nếu fail thì set "UNKNOWN" để không crash flow (MVP)
+            string? regionCode = null;
+            try
+            {
+                regionCode = await _regionCodeResolver.ResolveDistrictRegionCodeAsync(
+                    dto.Latitude.Value,
+                    dto.Longitude.Value);
+            }
+            catch
+            {
+                // ignore
+            }
+
             // 1. Tạo WasteReport
             var report = new WasteReport
             {
@@ -36,6 +61,7 @@ namespace Application.Services
                 Description = dto.Description,
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
+                RegionCode = string.IsNullOrWhiteSpace(regionCode) ? "UNKNOWN" : regionCode,
                 Status = WasteReportStatus.Pending
             };
 
@@ -73,6 +99,10 @@ namespace Application.Services
                     await _unitOfWork.SaveAsync();
                 }
             }
+
+            // ✅ NEW: Dispatch Top1 -> tạo CollectionRequest(Offered) cho từng WasteReportWaste
+            // Nếu RegionCode = UNKNOWN thì service sẽ tự bỏ qua (MVP)
+            await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
 
             return await GetByIdAsync(report.Id)
                    ?? throw new Exception("Create failed");
@@ -201,21 +231,15 @@ namespace Application.Services
 
         // ================= HELPERS =================
 
-        /// <summary>
-        /// Lấy publicId từ Cloudinary URL.
-        /// VD: https://res.cloudinary.com/demo/image/upload/v123/waste_images/abc.png → waste_images/abc
-        /// </summary>
         private static string ExtractPublicId(string url)
         {
             try
             {
                 var uri = new Uri(url);
                 var segments = uri.AbsolutePath.Split('/');
-                // Tìm index "upload", lấy từ sau version (v...) đến hết, bỏ extension
                 var uploadIdx = Array.IndexOf(segments, "upload");
                 if (uploadIdx < 0) return url;
 
-                // Bỏ segment version (bắt đầu bằng 'v' + số)
                 var afterUpload = segments.Skip(uploadIdx + 1)
                     .SkipWhile(s => s.Length > 1 && s[0] == 'v' && s.Skip(1).All(char.IsDigit))
                     .ToArray();
