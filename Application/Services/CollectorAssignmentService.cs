@@ -60,6 +60,20 @@ namespace Application.Services
             await assignmentRepo.InsertAsync(entity);
             await _uow.SaveAsync();
 
+            // ✅ NEW (không đụng logic cũ): update CollectionRequest status -> Assigned
+            // chỉ update khi request đã Accepted
+            var requestTracked = await requestRepo.GetByIdAsync(dto.RequestId);
+            if (requestTracked != null && !requestTracked.IsDeleted)
+            {
+                if (requestTracked.Status == CollectionRequestStatus.Accepted)
+                {
+                    requestTracked.Status = CollectionRequestStatus.Assigned;
+                    requestTracked.LastUpdatedTime = DateTimeOffset.UtcNow;
+                    requestRepo.Update(requestTracked);
+                    await _uow.SaveAsync();
+                }
+            }
+
             return await GetByIdEnterpriseAsync(enterpriseId, entity.Id)
                    ?? throw new Exception("Create assignment failed");
         }
@@ -191,7 +205,7 @@ namespace Application.Services
             return true;
         }
 
-    private static CollectorAssignmentDto Map(CollectorAssignment x)
+        private static CollectorAssignmentDto Map(CollectorAssignment x)
         {
             return new CollectorAssignmentDto
             {

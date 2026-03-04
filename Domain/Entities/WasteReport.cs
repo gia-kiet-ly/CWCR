@@ -12,7 +12,7 @@ namespace Domain.Entities
 
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
-
+        public string? RegionCode { get; set; }  // BE tự fill từ lat/long
         public WasteReportStatus Status { get; set; }
 
         public ICollection<WasteReportWaste> Wastes { get; set; }
