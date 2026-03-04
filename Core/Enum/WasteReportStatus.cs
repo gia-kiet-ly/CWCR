@@ -11,8 +11,11 @@ namespace Core.Enum
         Pending,
         Accepted,
         Assigned,
+        OnTheWay,
         Collected,
-        Rejected
+        Verified,
+        Rejected,
+        Disputed
     }
 
 }

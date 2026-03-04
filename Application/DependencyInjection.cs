@@ -1,5 +1,6 @@
 ﻿using Application.Contract.Interfaces;
 using Application.Contract.Interfaces.Services;
+using Application.Contract.Services;
 using Application.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,8 @@ namespace Application
             services.AddScoped<ICollectorProfileService, CollectorProfileService>();
             services.AddScoped<ICollectorAssignmentService, CollectorAssignmentService>();
             services.AddScoped<ICollectionProofService, CollectionProofService>();
+            services.AddScoped <IComplaintService, ComplaintService>();
+            services.AddScoped<IDisputeResolutionService, DisputeResolutionService>();
             return services;
         }
     }
