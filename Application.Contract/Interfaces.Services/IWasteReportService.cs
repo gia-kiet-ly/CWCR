@@ -31,7 +31,7 @@ namespace Application.Contract.Interfaces
             WasteReportFilterDto filter);
 
         // =============================
-        // DELETE
+        // DELETE (SOFT DELETE)
         // =============================
         Task<bool> DeleteAsync(
             Guid reportId);
