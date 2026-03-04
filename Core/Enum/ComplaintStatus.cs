@@ -10,6 +10,7 @@ namespace Core.Enum
     {
         Open,
         InReview,
-        Resolved
+        Resolved,
+        Rejected
     }
 }

@@ -21,11 +21,11 @@ namespace Domain.Base
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public Guid Id { get; set; }
         [Display(Name = "Created By")]
-        public string? CreatedBy { get; set; }
+        public Guid? CreatedBy { get; set; }
         [Display(Name = "Last Updated By")]
-        public string? LastUpdatedBy { get; set; }
+        public Guid? LastUpdatedBy { get; set; }
         [Display(Name = "Deleted By")]
-        public string? DeletedBy { get; set; }
+        public Guid? DeletedBy { get; set; }
         [Display(Name = "IsDeleted")]
         public bool IsDeleted { get; set; } = false;
         [Display(Name = "Created Time")]

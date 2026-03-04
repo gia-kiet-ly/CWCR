@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 using System.Text.Json;
 
 namespace Infrastructure.DbContext
@@ -381,42 +382,52 @@ namespace Infrastructure.DbContext
 
             builder.Entity<Complaint>(entity =>
             {
-                entity.HasKey(e => e.Id);
-
-                entity.HasOne(e => e.Citizen)
+                // Complainant (ApplicationUser)
+                entity.HasOne(c => c.Complainant)
                     .WithMany()
-                    .HasForeignKey(e => e.CitizenId)
+                    .HasForeignKey(c => c.ComplainantId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(e => e.Report)
+                // WasteReport
+                entity.HasOne(c => c.Report)
                     .WithMany()
-                    .HasForeignKey(e => e.ReportId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                    .HasForeignKey(c => c.ReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasMany(e => e.Resolutions)
+                // CollectionRequest (optional)
+                entity.HasOne(c => c.CollectionRequest)
+                    .WithMany()
+                    .HasForeignKey(c => c.CollectionRequestId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Resolutions
+                entity.HasMany(c => c.Resolutions)
                     .WithOne(r => r.Complaint)
                     .HasForeignKey(r => r.ComplaintId)
                     .OnDelete(DeleteBehavior.Cascade);
 
+                entity.Property(c => c.Content)
+                    .IsRequired()
+                    .HasMaxLength(1000);
             });
 
             // ======================== DisputeResolution Configuration ========================
 
             builder.Entity<DisputeResolution>(entity =>
             {
-                entity.HasKey(e => e.Id);
-
-                entity.HasOne(e => e.Complaint)
+                entity.HasOne(r => r.Complaint)
                     .WithMany(c => c.Resolutions)
-                    .HasForeignKey(e => e.ComplaintId)
+                    .HasForeignKey(r => r.ComplaintId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasOne(e => e.Admin)
+                entity.HasOne(r => r.Handler)
                     .WithMany()
-                    .HasForeignKey(e => e.AdminId)
+                    .HasForeignKey(r => r.HandlerId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Ignore(e => e.Handler);
+                entity.Property(r => r.ResolutionNote)
+                    .IsRequired()
+                    .HasMaxLength(1000);
             });
 
             // ======================== SystemAuditLog Configuration ========================
