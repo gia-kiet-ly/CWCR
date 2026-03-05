@@ -2,6 +2,7 @@
 using Application.Contract.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -18,18 +19,23 @@ namespace API.Controllers
         }
 
         // ================================
-        // CREATE
+        // CREATE ENTERPRISE PROFILE
         // ================================
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Create(
             [FromBody] CreateRecyclingEnterpriseDto dto)
         {
-            var result = await _service.CreateAsync(dto);
+            var userId = Guid.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            var result = await _service.CreateAsync(userId, dto);
+
             return Ok(result);
         }
 
         // ================================
-        // GET BY ID
+        // GET ENTERPRISE BY ID
         // ================================
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
@@ -43,20 +49,22 @@ namespace API.Controllers
         }
 
         // ================================
-        // GET ALL WITH FILTER
+        // GET ALL ENTERPRISE (FILTER + PAGING)
         // ================================
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] RecyclingEnterpriseFilterDto filter)
         {
             var result = await _service.GetAllAsync(filter);
+
             return Ok(result);
         }
 
         // ================================
-        // UPDATE
+        // UPDATE ENTERPRISE PROFILE
         // ================================
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Update(
             Guid id,
             [FromBody] UpdateRecyclingEnterpriseDto dto)
@@ -70,7 +78,7 @@ namespace API.Controllers
         }
 
         // ================================
-        // UPDATE STATUS (ADMIN)
+        // UPDATE APPROVAL STATUS (ADMIN)
         // ================================
         [HttpPatch("{id}/status")]
         // [Authorize(Roles = "Admin")]
@@ -87,9 +95,10 @@ namespace API.Controllers
         }
 
         // ================================
-        // DELETE
+        // DELETE ENTERPRISE
         // ================================
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             var success = await _service.DeleteAsync(id);
