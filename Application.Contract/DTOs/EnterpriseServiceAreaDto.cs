@@ -5,8 +5,6 @@ namespace Application.Contract.DTOs
     // ================= CREATE =================
     public class CreateEnterpriseServiceAreaDto
     {
-        [Required]
-        public Guid EnterpriseId { get; set; }
 
         [Required]
         [MaxLength(50)]

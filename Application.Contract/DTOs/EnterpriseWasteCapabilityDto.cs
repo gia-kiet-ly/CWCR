@@ -5,8 +5,6 @@ namespace Application.Contract.DTOs
     // ================= CREATE =================
     public class CreateEnterpriseWasteCapabilityDto
     {
-        [Required]
-        public Guid EnterpriseId { get; set; }
 
         [Required]
         public Guid WasteTypeId { get; set; }

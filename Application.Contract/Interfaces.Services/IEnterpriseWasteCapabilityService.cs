@@ -6,6 +6,7 @@ namespace Application.Contract.Interfaces.Services
     {
         // ================= CREATE =================
         Task<EnterpriseWasteCapabilityDto> CreateAsync(
+            Guid userId,
             CreateEnterpriseWasteCapabilityDto dto);
 
         // ================= GET BY ID =================
