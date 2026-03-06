@@ -25,6 +25,7 @@ namespace Infrastructure.DbContext
 
         // Collection & Points
         public DbSet<CitizenPoint> CitizenPoints { get; set; }
+        public DbSet<CitizenPointHistory> CitizenPointHistories { get; set; }
         public DbSet<CollectionProof> CollectionProofs { get; set; }
         public DbSet<CollectionRequest> CollectionRequests { get; set; }
         public DbSet<CollectorAssignment> CollectorAssignments { get; set; }
@@ -82,6 +83,8 @@ namespace Infrastructure.DbContext
                     .WithOne(w => w.WasteReport)
                     .HasForeignKey(w => w.WasteReportId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.RegionCode);
             });
 
             // ======================== WasteReportWaste Configuration ========================
@@ -89,6 +92,9 @@ namespace Infrastructure.DbContext
             builder.Entity<WasteReportWaste>(entity =>
             {
                 entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.EstimatedWeightKg)
+                    .HasPrecision(10, 2);
 
                 entity.HasOne(e => e.WasteType)
                     .WithMany()
@@ -100,7 +106,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.WasteReportId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                // ✅ NEW: Relation with WasteImage
                 entity.HasMany(e => e.Images)
                     .WithOne(i => i.WasteReportWaste)
                     .HasForeignKey(i => i.WasteReportWasteId)
@@ -161,10 +166,9 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.CitizenId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(e => e.Report)
-                    .WithMany()
-                    .HasForeignKey(e => e.ReportId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                // mỗi citizen chỉ có 1 record điểm
+                entity.HasIndex(e => e.CitizenId)
+                    .IsUnique();
             });
 
             // ======================== CollectionRequest Configuration ========================
@@ -281,8 +285,6 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Ignore(e => e.RuleId);
-
                 entity.HasOne(e => e.Enterprise)
                     .WithMany()
                     .HasForeignKey(e => e.EnterpriseId)
@@ -292,6 +294,9 @@ namespace Infrastructure.DbContext
                     .WithMany()
                     .HasForeignKey(e => e.WasteTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.EnterpriseId, e.WasteTypeId })
+                    .IsUnique();
             });
 
             // ======================== RecyclingEnterprise Configuration ========================
@@ -459,6 +464,35 @@ namespace Infrastructure.DbContext
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ======================== CitizenPointHistory Configuration ========================
+
+            builder.Entity<CitizenPointHistory>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Points)
+                    .IsRequired();
+
+                entity.Property(e => e.Reason)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                entity.HasOne(e => e.Citizen)
+                    .WithMany()
+                    .HasForeignKey(e => e.CitizenId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.WasteReport)
+                    .WithMany()
+                    .HasForeignKey(e => e.WasteReportId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // leaderboard query
+                entity.HasIndex(e => e.CitizenId);
+                entity.HasIndex(e => e.CreatedTime);
+                entity.HasIndex(e => e.WasteReportId);
             });
         }
     }

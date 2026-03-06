@@ -33,6 +33,7 @@ namespace Application
             services.AddScoped <IComplaintService, ComplaintService>();
             services.AddScoped<IDisputeResolutionService, DisputeResolutionService>();
             services.AddScoped<ICollectionRequestService, CollectionRequestService>();
+            services.AddScoped<ICitizenPointService, CitizenPointService>();
             return services;
         }
     }
