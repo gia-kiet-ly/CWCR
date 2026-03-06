@@ -6,6 +6,7 @@ namespace Application.Contract.Interfaces.Services
     {
         // ================= CREATE =================
         Task<EnterpriseServiceAreaDto> CreateAsync(
+            Guid userId,
             CreateEnterpriseServiceAreaDto dto);
 
         // ================= GET BY ID =================

@@ -1,6 +1,7 @@
 ﻿using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -18,11 +19,18 @@ namespace API.Controllers
 
         // ================= CREATE =================
         [HttpPost]
-        public async Task<ActionResult<EnterpriseServiceAreaDto>> Create(
-            [FromBody] CreateEnterpriseServiceAreaDto dto)
+        public async Task<IActionResult> Create(
+            CreateEnterpriseServiceAreaDto dto)
         {
-            var result = await _service.CreateAsync(dto);
-            return Ok(result);
+            var userId = Guid.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            var result = await _service.CreateAsync(userId, dto);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = result.Id },
+                result);
         }
 
         // ================= GET BY ID =================
