@@ -117,13 +117,9 @@ namespace Application.Services
 
                     var enterprise = new RecyclingEnterprise
                     {
-                        // Nếu BaseEntity tự set Id thì bỏ dòng này,
-                        // còn nếu không thì giữ (an toàn).
                         Id = Guid.NewGuid(),
 
                         UserId = user.Id,
-                        // RepresentativeId optional - có thể set = user.Id nếu bạn coi user đăng ký là đại diện
-                        RepresentativeId = user.Id,
 
                         Name = info.EnterpriseName.Trim(),
                         TaxCode = info.TaxCode.Trim(),
@@ -133,9 +129,6 @@ namespace Application.Services
                         EnvironmentLicenseFileId = info.EnvironmentLicenseFileId,
 
                         ApprovalStatus = Core.Enum.EnterpriseApprovalStatus.PendingApproval,
-
-                        // Nếu muốn enterprise chưa được vận hành cho tới khi duyệt:
-                        // OperationalStatus = Core.Enum.EnterpriseStatus.Inactive,
                         OperationalStatus = Core.Enum.EnterpriseStatus.Active,
 
                         CreatedTime = DateTimeOffset.UtcNow

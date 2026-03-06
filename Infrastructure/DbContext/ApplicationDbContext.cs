@@ -244,7 +244,7 @@ namespace Infrastructure.DbContext
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasOne(e => e.Enterprise)
-                    .WithMany()
+                    .WithMany(e => e.Collectors)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
@@ -300,27 +300,43 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Address).IsRequired().HasMaxLength(300);
-                entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.LegalRepresentative).IsRequired().HasMaxLength(150);
-                entity.Property(e => e.RepresentativePosition).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(200);
 
-                entity.Property(e => e.ApprovalStatus).HasConversion<string>().IsRequired();
-                entity.Property(e => e.OperationalStatus).HasConversion<string>().IsRequired();
+                entity.Property(e => e.Address)
+                    .IsRequired()
+                    .HasMaxLength(300);
 
+                entity.Property(e => e.TaxCode)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.LegalRepresentative)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.RepresentativePosition)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.ApprovalStatus)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                entity.Property(e => e.OperationalStatus)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                // Owner account
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // MVP: 1 user account = 1 enterprise record
-                entity.HasIndex(e => e.UserId).IsUnique();
-
-                entity.HasOne(e => e.Representative)
-                    .WithMany()
-                    .HasForeignKey(e => e.RepresentativeId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                // 1 User = 1 Enterprise
+                entity.HasIndex(e => e.UserId)
+                    .IsUnique();
             });
 
             // ======================== EnterpriseServiceArea Configuration ========================

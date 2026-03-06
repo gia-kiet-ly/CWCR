@@ -16,19 +16,26 @@ namespace Application.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<RecyclingEnterpriseDto> CreateAsync(CreateRecyclingEnterpriseDto dto)
+        // CREATE
+        public async Task<RecyclingEnterpriseDto> CreateAsync(Guid userId, CreateRecyclingEnterpriseDto dto)
         {
             var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
 
             var entity = new RecyclingEnterprise
             {
-                UserId = dto.UserId,                       // ✅ bắt buộc
+                UserId = userId,
+
                 Name = dto.Name,
+                TaxCode = dto.TaxCode,
                 Address = dto.Address,
-                RepresentativeId = dto.RepresentativeId,   // ✅ Guid?
+                LegalRepresentative = dto.LegalRepresentative,
+                RepresentativePosition = dto.RepresentativePosition,
+                EnvironmentLicenseFileId = dto.EnvironmentLicenseFileId,
 
                 ApprovalStatus = EnterpriseApprovalStatus.PendingApproval,
-                OperationalStatus = EnterpriseStatus.Active
+                OperationalStatus = EnterpriseStatus.Active,
+
+                CreatedTime = DateTimeOffset.UtcNow
             };
 
             await repo.InsertAsync(entity);
@@ -37,23 +44,23 @@ namespace Application.Services
             return MapToDto(entity);
         }
 
+        // GET BY ID
         public async Task<RecyclingEnterpriseDto?> GetByIdAsync(Guid id)
         {
             var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
 
             var entity = await repo.NoTrackingEntities
-                .Include(x => x.Representative)
                 .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
 
             return entity == null ? null : MapToDto(entity);
         }
 
-        public async Task<IEnumerable<RecyclingEnterpriseDto>> GetAllAsync(RecyclingEnterpriseFilterDto filter)
+        // GET LIST + PAGING
+        public async Task<PagedRecyclingEnterpriseDto> GetAllAsync(RecyclingEnterpriseFilterDto filter)
         {
             var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
 
             var query = repo.NoTrackingEntities
-                .Include(x => x.Representative)
                 .Where(x => !x.IsDeleted);
 
             if (!string.IsNullOrWhiteSpace(filter.Name))
@@ -68,40 +75,57 @@ namespace Application.Services
                 query = query.Where(x => x.ApprovalStatus == approval);
             }
 
-            query = query
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize);
+            var total = await query.CountAsync();
 
-            var list = await query.ToListAsync();
-            return list.Select(MapToDto);
+            var items = await query
+                .OrderByDescending(x => x.CreatedTime)
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            return new PagedRecyclingEnterpriseDto
+            {
+                TotalCount = total,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize,
+                Items = items.Select(MapToDto).ToList()
+            };
         }
 
+        // UPDATE
         public async Task<bool> UpdateAsync(Guid id, UpdateRecyclingEnterpriseDto dto)
         {
             var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+
             var entity = await repo.GetByIdAsync(id);
 
-            if (entity == null || entity.IsDeleted) return false;
+            if (entity == null || entity.IsDeleted)
+                return false;
 
             entity.Name = dto.Name;
+            entity.TaxCode = dto.TaxCode;
             entity.Address = dto.Address;
-            entity.RepresentativeId = dto.RepresentativeId;
+            entity.LegalRepresentative = dto.LegalRepresentative;
+            entity.RepresentativePosition = dto.RepresentativePosition;
+            entity.EnvironmentLicenseFileId = dto.EnvironmentLicenseFileId;
 
             entity.LastUpdatedTime = DateTimeOffset.UtcNow;
 
             repo.Update(entity);
             await _unitOfWork.SaveAsync();
+
             return true;
         }
 
-        // DTO tên UpdateEnterpriseStatusDto giữ nguyên,
-        // nhưng Status này được hiểu là ApprovalStatus
+        // UPDATE APPROVAL STATUS (ADMIN)
         public async Task<bool> UpdateStatusAsync(Guid id, UpdateEnterpriseStatusDto dto)
         {
             var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+
             var entity = await repo.GetByIdAsync(id);
 
-            if (entity == null || entity.IsDeleted) return false;
+            if (entity == null || entity.IsDeleted)
+                return false;
 
             if (!Enum.TryParse<EnterpriseApprovalStatus>(dto.Status, true, out var newStatus))
                 return false;
@@ -111,37 +135,46 @@ namespace Application.Services
 
             repo.Update(entity);
             await _unitOfWork.SaveAsync();
+
             return true;
         }
 
+        // DELETE (SOFT DELETE)
         public async Task<bool> DeleteAsync(Guid id)
         {
             var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+
             var entity = await repo.GetByIdAsync(id);
 
-            if (entity == null) return false;
+            if (entity == null)
+                return false;
 
             entity.IsDeleted = true;
             entity.DeletedTime = DateTimeOffset.UtcNow;
 
             repo.Update(entity);
             await _unitOfWork.SaveAsync();
+
             return true;
         }
 
+        // MAPPING
         private static RecyclingEnterpriseDto MapToDto(RecyclingEnterprise entity)
         {
             return new RecyclingEnterpriseDto
             {
                 Id = entity.Id,
+                UserId = entity.UserId,
+
                 Name = entity.Name,
+                TaxCode = entity.TaxCode,
                 Address = entity.Address,
+                LegalRepresentative = entity.LegalRepresentative,
+                RepresentativePosition = entity.RepresentativePosition,
+                EnvironmentLicenseFileId = entity.EnvironmentLicenseFileId,
 
-                // giữ field Status để tương thích
-                Status = entity.ApprovalStatus.ToString(),
-
-                RepresentativeId = entity.RepresentativeId,
-                RepresentativeName = entity.Representative?.UserName,
+                ApprovalStatus = entity.ApprovalStatus.ToString(),
+                OperationalStatus = entity.OperationalStatus.ToString(),
 
                 CreatedTime = entity.CreatedTime
             };
