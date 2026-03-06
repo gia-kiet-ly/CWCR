@@ -19,52 +19,57 @@ namespace Application.Services
         }
 
         // ================= CREATE =================
-        public async Task<EnterpriseWasteCapabilityDto> CreateAsync(
-            CreateEnterpriseWasteCapabilityDto dto)
-        {
-            if (dto.DailyCapacityKg <= 0)
-                throw new Exception("Daily capacity must be greater than 0");
+public async Task<EnterpriseWasteCapabilityDto> CreateAsync(
+    Guid userId,
+    CreateEnterpriseWasteCapabilityDto dto)
+{
+    if (dto.DailyCapacityKg <= 0)
+        throw new Exception("Daily capacity must be greater than 0");
 
-            var capabilityRepo = _unitOfWork.GetRepository<EnterpriseWasteCapability>();
-            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
-            var wasteTypeRepo = _unitOfWork.GetRepository<WasteType>();
+    var capabilityRepo = _unitOfWork.GetRepository<EnterpriseWasteCapability>();
+    var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+    var wasteTypeRepo = _unitOfWork.GetRepository<WasteType>();
 
-            // Check enterprise tồn tại
-            var enterprise = await enterpriseRepo.NoTrackingEntities
-                .FirstOrDefaultAsync(x => x.Id == dto.EnterpriseId && !x.IsDeleted);
+    // Lấy enterprise từ userId
+    var enterprise = await enterpriseRepo.NoTrackingEntities
+        .FirstOrDefaultAsync(x =>
+            x.UserId == userId &&
+            !x.IsDeleted);
 
-            if (enterprise == null)
-                throw new Exception("Enterprise not found");
+    if (enterprise == null)
+        throw new Exception("Enterprise not found");
 
-            // Check waste type tồn tại
-            var wasteType = await wasteTypeRepo.NoTrackingEntities
-                .FirstOrDefaultAsync(x => x.Id == dto.WasteTypeId && !x.IsDeleted);
+    // Check waste type
+    var wasteType = await wasteTypeRepo.NoTrackingEntities
+        .FirstOrDefaultAsync(x =>
+            x.Id == dto.WasteTypeId &&
+            !x.IsDeleted);
 
-            if (wasteType == null)
-                throw new Exception("Waste type not found");
+    if (wasteType == null)
+        throw new Exception("Waste type not found");
 
-            // Không cho duplicate WasteType trong cùng Enterprise
-            var existed = await capabilityRepo.NoTrackingEntities
-                .AnyAsync(x =>
-                    x.EnterpriseId == dto.EnterpriseId &&
-                    x.WasteTypeId == dto.WasteTypeId &&
-                    !x.IsDeleted);
+    // Check duplicate capability
+    var existed = await capabilityRepo.NoTrackingEntities
+        .AnyAsync(x =>
+            x.EnterpriseId == enterprise.Id &&
+            x.WasteTypeId == dto.WasteTypeId &&
+            !x.IsDeleted);
 
-            if (existed)
-                throw new Exception("Capability already exists");
+    if (existed)
+        throw new Exception("Capability already exists");
 
-            var entity = new EnterpriseWasteCapability
-            {
-                EnterpriseId = dto.EnterpriseId,
-                WasteTypeId = dto.WasteTypeId,
-                DailyCapacityKg = dto.DailyCapacityKg
-            };
+    var entity = new EnterpriseWasteCapability
+    {
+        EnterpriseId = enterprise.Id,
+        WasteTypeId = dto.WasteTypeId,
+        DailyCapacityKg = dto.DailyCapacityKg
+    };
 
-            await capabilityRepo.InsertAsync(entity);
-            await _unitOfWork.SaveAsync();
+    await capabilityRepo.InsertAsync(entity);
+    await _unitOfWork.SaveAsync();
 
-            return MapToDto(entity, enterprise.Name, wasteType.Name);
-        }
+    return MapToDto(entity, enterprise.Name, wasteType.Name);
+}
 
         // ================= GET BY ID =================
         public async Task<EnterpriseWasteCapabilityDto?> GetByIdAsync(Guid id)

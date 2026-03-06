@@ -20,22 +20,25 @@ namespace Application.Services
 
         // ================= CREATE =================
         public async Task<EnterpriseServiceAreaDto> CreateAsync(
+            Guid userId,
             CreateEnterpriseServiceAreaDto dto)
         {
             var areaRepo = _unitOfWork.GetRepository<EnterpriseServiceArea>();
             var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
 
-            // Check enterprise tồn tại
+            // lấy enterprise theo user
             var enterprise = await enterpriseRepo.NoTrackingEntities
-                .FirstOrDefaultAsync(x => x.Id == dto.EnterpriseId && !x.IsDeleted);
+                .FirstOrDefaultAsync(x =>
+                    x.UserId == userId &&
+                    !x.IsDeleted);
 
             if (enterprise == null)
                 throw new Exception("Enterprise not found");
 
-            // Không cho duplicate RegionCode trong cùng Enterprise
+            // check duplicate region
             var existed = await areaRepo.NoTrackingEntities
                 .AnyAsync(x =>
-                    x.EnterpriseId == dto.EnterpriseId &&
+                    x.EnterpriseId == enterprise.Id &&
                     x.RegionCode == dto.RegionCode &&
                     !x.IsDeleted);
 
@@ -44,7 +47,7 @@ namespace Application.Services
 
             var entity = new EnterpriseServiceArea
             {
-                EnterpriseId = dto.EnterpriseId,
+                EnterpriseId = enterprise.Id,
                 RegionCode = dto.RegionCode
             };
 
