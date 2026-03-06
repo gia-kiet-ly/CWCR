@@ -5,12 +5,9 @@ namespace Domain.Entities
     public class CitizenPoint : BaseEntity
     {
         public Guid CitizenId { get; set; }
-        public ApplicationUser Citizen { get; set; }
+        public ApplicationUser Citizen { get; set; } = null!;
 
-        public Guid ReportId { get; set; }
-        public WasteReport Report { get; set; }
-
-        public int Point { get; set; }
-        public string Reason { get; set; } = null!;
+        public int TotalPoints { get; set; } = 0;
+        public ICollection<CitizenPointHistory> Histories { get; set; } = new List<CitizenPointHistory>();
     }
 }

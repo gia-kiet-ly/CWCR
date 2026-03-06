@@ -11,8 +11,10 @@ namespace Domain.Entities
         public Guid WasteTypeId { get; set; }
         public WasteType WasteType { get; set; } = null!;
 
-        // optional: ghi chú riêng cho loại rác này
+        public decimal? EstimatedWeightKg { get; set; }
+
         public string? Note { get; set; }
+
         public ICollection<WasteImage> Images { get; set; }
             = new List<WasteImage>();
     }
