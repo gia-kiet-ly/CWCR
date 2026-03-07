@@ -20,7 +20,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromForm] CreateWasteReportDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateWasteReportDto dto)
         {
             var citizenId = Guid.Parse(
                 User.FindFirstValue(ClaimTypes.NameIdentifier)!);
