@@ -36,6 +36,8 @@ namespace Application
             services.AddScoped<IDisputeResolutionService, DisputeResolutionService>();
             services.AddScoped<ICollectionRequestService, CollectionRequestService>();
             services.AddScoped<ICitizenPointService, CitizenPointService>();
+            services.AddScoped<IDistrictService, DistrictService>();
+            services.AddScoped<IWardService, WardService>();
 
             return services;
         }

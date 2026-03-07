@@ -8,8 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
-    public class EnterpriseServiceAreaService
-        : IEnterpriseServiceAreaService
+    public class EnterpriseServiceAreaService : IEnterpriseServiceAreaService
     {
         private readonly IUnitOfWork _unitOfWork;
 
@@ -25,8 +24,9 @@ namespace Application.Services
         {
             var areaRepo = _unitOfWork.GetRepository<EnterpriseServiceArea>();
             var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var districtRepo = _unitOfWork.GetRepository<District>();
+            var wardRepo = _unitOfWork.GetRepository<Ward>();
 
-            // lấy enterprise theo user
             var enterprise = await enterpriseRepo.NoTrackingEntities
                 .FirstOrDefaultAsync(x =>
                     x.UserId == userId &&
@@ -35,11 +35,32 @@ namespace Application.Services
             if (enterprise == null)
                 throw new Exception("Enterprise not found");
 
-            // check duplicate region
+            var district = await districtRepo.NoTrackingEntities
+                .FirstOrDefaultAsync(x =>
+                    x.Id == dto.DistrictId &&
+                    !x.IsDeleted);
+
+            if (district == null)
+                throw new Exception("District not found");
+
+            var ward = await wardRepo.NoTrackingEntities
+                .FirstOrDefaultAsync(x =>
+                    x.Id == dto.WardId &&
+                    !x.IsDeleted);
+
+            if (ward == null)
+                throw new Exception("Ward not found");
+
+            // check ward belongs to district
+            if (ward.DistrictId != dto.DistrictId)
+                throw new Exception("Ward does not belong to the selected district");
+
+            // check duplicate
             var existed = await areaRepo.NoTrackingEntities
                 .AnyAsync(x =>
                     x.EnterpriseId == enterprise.Id &&
-                    x.RegionCode == dto.RegionCode &&
+                    x.DistrictId == dto.DistrictId &&
+                    x.WardId == dto.WardId &&
                     !x.IsDeleted);
 
             if (existed)
@@ -48,13 +69,16 @@ namespace Application.Services
             var entity = new EnterpriseServiceArea
             {
                 EnterpriseId = enterprise.Id,
-                RegionCode = dto.RegionCode
+                DistrictId = dto.DistrictId,
+                WardId = dto.WardId,
+                CreatedTime = CoreHelper.SystemTimeNow
             };
 
             await areaRepo.InsertAsync(entity);
             await _unitOfWork.SaveAsync();
 
-            return MapToDto(entity, enterprise.Name);
+            return await GetByIdAsync(entity.Id)
+                   ?? throw new Exception("Create failed");
         }
 
         // ================= GET BY ID =================
@@ -64,11 +88,15 @@ namespace Application.Services
 
             var entity = await repo.NoTrackingEntities
                 .Include(x => x.Enterprise)
-                .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+                .Include(x => x.District)
+                .Include(x => x.Ward)
+                .FirstOrDefaultAsync(x =>
+                    x.Id == id &&
+                    !x.IsDeleted);
 
             return entity == null
                 ? null
-                : MapToDto(entity, entity.Enterprise?.Name);
+                : MapToDto(entity);
         }
 
         // ================= GET ALL =================
@@ -79,13 +107,21 @@ namespace Application.Services
 
             var query = repo.NoTrackingEntities
                 .Include(x => x.Enterprise)
+                .Include(x => x.District)
+                .Include(x => x.Ward)
                 .Where(x => !x.IsDeleted);
 
             if (filter.EnterpriseId.HasValue)
-                query = query.Where(x => x.EnterpriseId == filter.EnterpriseId);
+                query = query.Where(x =>
+                    x.EnterpriseId == filter.EnterpriseId);
 
-            if (!string.IsNullOrWhiteSpace(filter.RegionCode))
-                query = query.Where(x => x.RegionCode.Contains(filter.RegionCode));
+            if (filter.DistrictId.HasValue)
+                query = query.Where(x =>
+                    x.DistrictId == filter.DistrictId);
+
+            if (filter.WardId.HasValue)
+                query = query.Where(x =>
+                    x.WardId == filter.WardId);
 
             var pagedData = await repo.GetPagging(
                 query.OrderByDescending(x => x.CreatedTime),
@@ -98,9 +134,7 @@ namespace Application.Services
                 PageNumber = filter.PageNumber,
                 PageSize = filter.PageSize,
                 Items = pagedData.Items
-                    .Select(x => MapToDto(
-                        x,
-                        x.Enterprise?.Name))
+                    .Select(MapToDto)
                     .ToList()
             };
         }
@@ -111,24 +145,37 @@ namespace Application.Services
             UpdateEnterpriseServiceAreaDto dto)
         {
             var repo = _unitOfWork.GetRepository<EnterpriseServiceArea>();
+            var wardRepo = _unitOfWork.GetRepository<Ward>();
 
             var entity = await repo.GetByIdAsync(id);
 
             if (entity == null || entity.IsDeleted)
                 return false;
 
-            // Check duplicate RegionCode trong cùng Enterprise
+            var ward = await wardRepo.NoTrackingEntities
+                .FirstOrDefaultAsync(x =>
+                    x.Id == dto.WardId &&
+                    !x.IsDeleted);
+
+            if (ward == null)
+                throw new Exception("Ward not found");
+
+            if (ward.DistrictId != dto.DistrictId)
+                throw new Exception("Ward does not belong to the selected district");
+
             var existed = await repo.NoTrackingEntities
                 .AnyAsync(x =>
                     x.Id != id &&
                     x.EnterpriseId == entity.EnterpriseId &&
-                    x.RegionCode == dto.RegionCode &&
+                    x.DistrictId == dto.DistrictId &&
+                    x.WardId == dto.WardId &&
                     !x.IsDeleted);
 
             if (existed)
                 throw new Exception("Service area already exists");
 
-            entity.RegionCode = dto.RegionCode;
+            entity.DistrictId = dto.DistrictId;
+            entity.WardId = dto.WardId;
             entity.LastUpdatedTime = CoreHelper.SystemTimeNow;
 
             repo.Update(entity);
@@ -137,14 +184,14 @@ namespace Application.Services
             return true;
         }
 
-        // ================= DELETE (SOFT) =================
+        // ================= DELETE =================
         public async Task<bool> DeleteAsync(Guid id)
         {
             var repo = _unitOfWork.GetRepository<EnterpriseServiceArea>();
 
             var entity = await repo.GetByIdAsync(id);
 
-            if (entity == null)
+            if (entity == null || entity.IsDeleted)
                 return false;
 
             entity.IsDeleted = true;
@@ -158,15 +205,23 @@ namespace Application.Services
 
         // ================= MAPPER =================
         private static EnterpriseServiceAreaDto MapToDto(
-            EnterpriseServiceArea entity,
-            string? enterpriseName)
+            EnterpriseServiceArea entity)
         {
             return new EnterpriseServiceAreaDto
             {
                 Id = entity.Id,
+
                 EnterpriseId = entity.EnterpriseId,
-                EnterpriseName = enterpriseName ?? string.Empty,
-                RegionCode = entity.RegionCode,
+                EnterpriseName = entity.Enterprise?.Name ?? string.Empty,
+
+                DistrictId = entity.DistrictId,
+                DistrictName = entity.District?.Name ?? string.Empty,
+                DistrictCode = entity.District?.Code ?? string.Empty,
+
+                WardId = entity.WardId,
+                WardName = entity.Ward?.Name ?? string.Empty,
+                WardCode = entity.Ward?.Code ?? string.Empty,
+
                 CreatedTime = entity.CreatedTime
             };
         }

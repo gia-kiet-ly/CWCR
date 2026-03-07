@@ -34,6 +34,8 @@ namespace Infrastructure.DbContext
         public DbSet<RecyclingEnterprise> RecyclingEnterprises { get; set; }
         public DbSet<EnterpriseServiceArea> EnterpriseServiceAreas { get; set; }
         public DbSet<EnterpriseWasteCapability> EnterpriseWasteCapabilities { get; set; }
+        public DbSet<District> Districts { get; set; }
+        public DbSet<Ward> Wards { get; set; }
         public DbSet<EnterpriseDocument> EnterpriseDocuments { get; set; }
 
         // Statistics & Complaints
@@ -86,6 +88,54 @@ namespace Infrastructure.DbContext
                 entity.HasIndex(e => e.RegionCode);
             });
 
+            // ======================== District Configuration ========================
+
+            builder.Entity<District>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.Code)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.ProvinceCode)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.HasIndex(e => e.Code).IsUnique();
+
+                entity.HasMany(e => e.Wards)
+                    .WithOne(w => w.District)
+                    .HasForeignKey(w => w.DistrictId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ======================== Ward Configuration ========================
+
+            builder.Entity<Ward>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.Code)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.HasOne(e => e.District)
+                    .WithMany(d => d.Wards)
+                    .HasForeignKey(e => e.DistrictId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.DistrictId, e.Code })
+                    .IsUnique();
+            }); 
             // ======================== WasteReportWaste Configuration ========================
 
             builder.Entity<WasteReportWaste>(entity =>
@@ -405,14 +455,24 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Property(e => e.RegionCode).IsRequired().HasMaxLength(50);
-
                 entity.HasOne(e => e.Enterprise)
                     .WithMany(e => e.ServiceAreas)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasIndex(e => new { e.EnterpriseId, e.RegionCode }).IsUnique();
+                entity.HasOne(e => e.District)
+                    .WithMany()
+                    .HasForeignKey(e => e.DistrictId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Ward)
+                    .WithMany()
+                    .HasForeignKey(e => e.WardId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // 1 enterprise không được duplicate district + ward
+                entity.HasIndex(e => new { e.EnterpriseId, e.DistrictId, e.WardId })
+                    .IsUnique();
             });
 
             // ======================== EnterpriseWasteCapability Configuration ========================

@@ -27,7 +27,7 @@ namespace API.Controllers
         // ENTERPRISE INBOX (PAGED)
         // GET: /api/CollectionRequest/enterprise?Status=Offered&PageNumber=1&PageSize=10
         // =============================
-        [HttpGet("enterprise")]
+        [HttpGet("Enterprise")]
         public async Task<ActionResult<PagedCollectionRequestDto>> GetEnterpriseInbox([FromQuery] CollectionRequestFilterDto filter)
         {
             var enterpriseId = await ResolveEnterpriseIdFromTokenAsync();

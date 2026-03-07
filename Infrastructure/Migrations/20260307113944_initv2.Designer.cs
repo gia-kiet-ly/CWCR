@@ -4,6 +4,7 @@ using Infrastructure.DbContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260307113944_initv2")]
+    partial class initv2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -604,74 +607,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("Districts");
                 });
 
-            modelBuilder.Entity("Domain.Entities.EnterpriseDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DocumentType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("LastUpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("LastUpdatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<Guid>("RecyclingEnterpriseId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RecyclingEnterpriseId");
-
-                    b.HasIndex("RecyclingEnterpriseId", "DocumentType");
-
-                    b.ToTable("EnterpriseDocuments");
-                });
-
             modelBuilder.Entity("Domain.Entities.EnterpriseServiceArea", b =>
                 {
                     b.Property<Guid>("Id")
@@ -766,100 +701,6 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("EnterpriseWasteCapabilities");
-                });
-
-            modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("ApprovalStatus")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("EnvironmentLicenseFileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("LastUpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("LastUpdatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("LegalRepresentative")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("OperationalStatus")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("RepresentativePosition")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("ReviewedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("SubmittedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("TaxCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApprovalStatus");
-
-                    b.HasIndex("ReviewedByUserId");
-
-                    b.HasIndex("TaxCode")
-                        .IsUnique();
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("RecyclingEnterprises");
                 });
 
             modelBuilder.Entity("Domain.Entities.RecyclingStatistic", b =>
@@ -1369,6 +1210,80 @@ namespace Infrastructure.Migrations
                     b.ToTable("PointRules");
                 });
 
+            modelBuilder.Entity("RecyclingEnterprise", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EnvironmentLicenseFileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LegalRepresentative")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("OperationalStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RepresentativePosition")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("TaxCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("RecyclingEnterprises");
+                });
+
             modelBuilder.Entity("WasteImage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1464,7 +1379,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.CollectionRequest", b =>
                 {
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                    b.HasOne("RecyclingEnterprise", "Enterprise")
                         .WithMany("CollectionRequests")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1508,7 +1423,7 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                    b.HasOne("RecyclingEnterprise", "Enterprise")
                         .WithMany("Collectors")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1564,17 +1479,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Handler");
                 });
 
-            modelBuilder.Entity("Domain.Entities.EnterpriseDocument", b =>
-                {
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "RecyclingEnterprise")
-                        .WithMany("Documents")
-                        .HasForeignKey("RecyclingEnterpriseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("RecyclingEnterprise");
-                });
-
             modelBuilder.Entity("Domain.Entities.EnterpriseServiceArea", b =>
                 {
                     b.HasOne("Domain.Entities.District", "District")
@@ -1584,7 +1488,6 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("RecyclingEnterprise", "Enterprise")
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
                         .WithMany("ServiceAreas")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1604,7 +1507,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.EnterpriseWasteCapability", b =>
                 {
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                    b.HasOne("RecyclingEnterprise", "Enterprise")
                         .WithMany("WasteCapabilities")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1621,33 +1524,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("WasteType");
                 });
 
-            modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
-                {
-                    b.HasOne("Domain.Entities.ApplicationUser", "ReviewedByUser")
-                        .WithMany()
-                        .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Domain.Entities.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ReviewedByUser");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Domain.Entities.RecyclingStatistic", b =>
                 {
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                    b.HasOne("RecyclingEnterprise", "Enterprise")
                         .WithMany()
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", null)
+                    b.HasOne("RecyclingEnterprise", null)
                         .WithMany("RecyclingStatistics")
                         .HasForeignKey("RecyclingEnterpriseId");
 
@@ -1781,13 +1666,13 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("PointRule", b =>
                 {
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                    b.HasOne("RecyclingEnterprise", "Enterprise")
                         .WithMany()
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.RecyclingEnterprise", null)
+                    b.HasOne("RecyclingEnterprise", null)
                         .WithMany("PointRules")
                         .HasForeignKey("RecyclingEnterpriseId");
 
@@ -1800,6 +1685,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("Enterprise");
 
                     b.Navigation("WasteType");
+                });
+
+            modelBuilder.Entity("RecyclingEnterprise", b =>
+                {
+                    b.HasOne("Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("WasteImage", b =>
@@ -1843,23 +1739,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Wards");
                 });
 
-            modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
-                {
-                    b.Navigation("CollectionRequests");
-
-                    b.Navigation("Collectors");
-
-                    b.Navigation("Documents");
-
-                    b.Navigation("PointRules");
-
-                    b.Navigation("RecyclingStatistics");
-
-                    b.Navigation("ServiceAreas");
-
-                    b.Navigation("WasteCapabilities");
-                });
-
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>
                 {
                     b.Navigation("Wastes");
@@ -1873,6 +1752,21 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.WasteType", b =>
                 {
                     b.Navigation("WasteReportWastes");
+                });
+
+            modelBuilder.Entity("RecyclingEnterprise", b =>
+                {
+                    b.Navigation("CollectionRequests");
+
+                    b.Navigation("Collectors");
+
+                    b.Navigation("PointRules");
+
+                    b.Navigation("RecyclingStatistics");
+
+                    b.Navigation("ServiceAreas");
+
+                    b.Navigation("WasteCapabilities");
                 });
 #pragma warning restore 612, 618
         }

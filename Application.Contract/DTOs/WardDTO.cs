@@ -3,52 +3,57 @@
 namespace Application.Contract.DTOs
 {
     // ================= CREATE =================
-    public class CreateEnterpriseServiceAreaDto
+    public class CreateWardDto
     {
         [Required]
         public Guid DistrictId { get; set; }
 
-        public Guid? WardId { get; set; }
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(50)]
+        public string Code { get; set; } = string.Empty;
     }
-    // ================= UPDATE =================
-    public class UpdateEnterpriseServiceAreaDto
-    {
 
+    // ================= UPDATE =================
+    public class UpdateWardDto
+    {
         [Required]
         public Guid DistrictId { get; set; }
 
-        public Guid? WardId { get; set; }
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(50)]
+        public string Code { get; set; } = string.Empty;
     }
 
     // ================= RESPONSE =================
-    public class EnterpriseServiceAreaDto
+    public class WardDto
     {
         public Guid Id { get; set; }
 
-        public Guid EnterpriseId { get; set; }
-        public string EnterpriseName { get; set; } = string.Empty;
-
         public Guid DistrictId { get; set; }
+
         public string DistrictName { get; set; } = string.Empty;
-        public string DistrictCode { get; set; } = string.Empty;
 
-        public Guid? WardId { get; set; }
-        public string? WardName { get; set; }
-        public string? WardCode { get; set; }
+        public string Name { get; set; } = string.Empty;
 
-        public string RegionCode { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
 
         public DateTimeOffset CreatedTime { get; set; }
     }
 
     // ================= FILTER =================
-    public class EnterpriseServiceAreaFilterDto
+    public class WardFilterDto
     {
-        public Guid? EnterpriseId { get; set; }
-
         public Guid? DistrictId { get; set; }
 
-        public Guid? WardId { get; set; }
+        public string? Keyword { get; set; }
 
         private int _pageNumber = 1;
         public int PageNumber
@@ -66,13 +71,14 @@ namespace Application.Contract.DTOs
     }
 
     // ================= PAGED RESULT =================
-    public class PagedEnterpriseServiceAreaDto
+    public class PagedWardDto
     {
         public int TotalCount { get; set; }
+
         public int PageNumber { get; set; }
+
         public int PageSize { get; set; }
 
-        public List<EnterpriseServiceAreaDto> Items { get; set; }
-            = new();
+        public List<WardDto> Items { get; set; } = new();
     }
 }

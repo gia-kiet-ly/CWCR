@@ -1,40 +1,36 @@
 ﻿using Application.Contract.DTOs;
-using Application.Contract.Interfaces;
 using Application.Contract.Interfaces.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace API.Controllers
 {
-    //[Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class WasteReportController : ControllerBase
+    public class DistrictController : ControllerBase
     {
-        private readonly IWasteReportService _service;
+        private readonly IDistrictService _service;
 
-        public WasteReportController(IWasteReportService service)
+        public DistrictController(IDistrictService service)
         {
             _service = service;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateWasteReportDto dto)
+        [HttpGet("by-province/{provinceCode}")]
+        public async Task<IActionResult> GetByProvince(string provinceCode)
         {
-            var citizenId = Guid.Parse(
-                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetByProvinceAsync(provinceCode);
+            return Ok(result);
+        }
 
-            var result = await _service.CreateAsync(dto, citizenId);
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = result.Id },
-                result);
+        [HttpPost]
+        public async Task<IActionResult> Create(CreateDistrictDto dto)
+        {
+            var result = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, UpdateWasteReportDto dto)
+        public async Task<IActionResult> Update(Guid id, UpdateDistrictDto dto)
         {
             var result = await _service.UpdateAsync(id, dto);
             return Ok(result);
@@ -63,7 +59,7 @@ namespace API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetPaged([FromQuery] WasteReportFilterDto filter)
+        public async Task<IActionResult> GetPaged([FromQuery] DistrictFilterDto filter)
         {
             var result = await _service.GetPagedAsync(filter);
             return Ok(result);
