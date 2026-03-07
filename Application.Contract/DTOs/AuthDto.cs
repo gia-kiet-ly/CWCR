@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
 {
-    //Login
     public class LoginRequestDto
     {
         [Required]
@@ -18,7 +12,6 @@ namespace Application.Contract.DTOs
         public string Password { get; set; } = default!;
     }
 
-    //Register
     public class RegisterRequestDto
     {
         [Required, EmailAddress]
@@ -35,21 +28,8 @@ namespace Application.Contract.DTOs
 
         [Required, Phone]
         public string Phone { get; set; } = default!;
-
-        public bool IsActive { get; set; } = true; // Citizen: true, Enterprise: BE override false
-
-        public EnterpriseRegisterInfoDto? EnterpriseInfo { get; set; } // chỉ required khi role=Enterprise
     }
 
-    public class EnterpriseRegisterInfoDto
-    {
-        [Required] public string EnterpriseName { get; set; } = default!;
-        [Required] public string TaxCode { get; set; } = default!;
-        [Required] public string Address { get; set; } = default!;
-        [Required] public string LegalRepresentative { get; set; } = default!;
-        [Required] public string RepresentativePosition { get; set; } = default!;
-        [Required] public Guid EnvironmentLicenseFileId { get; set; } // hoặc string key/path
-    }
     public class RegisterResponseDto
     {
         public Guid Id { get; set; }
@@ -57,17 +37,41 @@ namespace Application.Contract.DTOs
         public string FullName { get; set; } = default!;
         public string Role { get; set; } = default!;
         public DateTime CreatedAt { get; set; }
+
+        public bool RequireEmailVerification { get; set; } = true;
+        public string Message { get; set; } = default!;
     }
 
-    //Login
+    public class EmailVerificationResultDto
+    {
+        public bool Succeeded { get; set; }
+        public string Email { get; set; } = default!;
+        public string Role { get; set; } = default!;
+        public string Message { get; set; } = default!;
+        public string NextStep { get; set; } = default!;
+        // Citizen -> Login
+        // Enterprise -> CompleteEnterpriseProfile
+    }
+
     public class AuthResponseDto
     {
         public string AccessToken { get; set; } = default!;
         public string RefreshToken { get; set; } = default!;
         public DateTime ExpiredAt { get; set; }
+
+        public Guid UserId { get; set; }
+        public string Email { get; set; } = default!;
+        public string FullName { get; set; } = default!;
+        public string Role { get; set; } = default!;
+
+        public bool EmailConfirmed { get; set; }
+        public bool IsActive { get; set; }
+
+        public string? EnterpriseApprovalStatus { get; set; }
+        public bool CanLogin { get; set; }
+        public bool MustCompleteEnterpriseProfile { get; set; }
     }
 
-    //Token
     public class RefreshRequestDto
     {
         [Required]

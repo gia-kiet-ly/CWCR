@@ -1,112 +1,145 @@
 ﻿using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Services;
+using Core.Utils;
+using Domain.Base;
+using Infrastructure.Repo;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace API.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/recycling-enterprises")]
+    [Authorize(Roles = SystemRoles.RecyclingEnterprise)]
     public class RecyclingEnterpriseController : ControllerBase
     {
         private readonly IRecyclingEnterpriseService _service;
 
-        public RecyclingEnterpriseController(
-            IRecyclingEnterpriseService service)
+        public RecyclingEnterpriseController(IRecyclingEnterpriseService service)
         {
             _service = service;
         }
 
-        // ================================
-        // CREATE ENTERPRISE PROFILE
-        // ================================
-        [HttpPost]
-        [Authorize]
-        public async Task<IActionResult> Create(
-            [FromBody] CreateRecyclingEnterpriseDto dto)
+        [HttpPost("me/profile")]
+        public async Task<IActionResult> CreateOrUpdateProfile(
+            [FromBody] CreateOrUpdateEnterpriseProfileRequestDto dto)
         {
-            var userId = Guid.Parse(
-                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = GetCurrentUserId();
 
-            var result = await _service.CreateAsync(userId, dto);
+            var data = await _service.CreateOrUpdateProfileAsync(userId, dto);
 
-            return Ok(result);
+            var response = new BaseResponse<EnterpriseProfileResponseDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Cập nhật hồ sơ doanh nghiệp thành công"
+            );
+
+            return Ok(response);
         }
 
-        // ================================
-        // GET ENTERPRISE BY ID
-        // ================================
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
+        [HttpGet("me/profile")]
+        public async Task<IActionResult> GetMyProfile()
         {
-            var result = await _service.GetByIdAsync(id);
+            var userId = GetCurrentUserId();
 
-            if (result == null)
-                return NotFound();
+            var data = await _service.GetMyEnterpriseProfileAsync(userId);
 
-            return Ok(result);
+            var response = new BaseResponse<EnterpriseProfileResponseDto?>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Lấy hồ sơ doanh nghiệp thành công"
+            );
+
+            return Ok(response);
         }
 
-        // ================================
-        // GET ALL ENTERPRISE (FILTER + PAGING)
-        // ================================
-        [HttpGet]
-        public async Task<IActionResult> GetAll(
-            [FromQuery] RecyclingEnterpriseFilterDto filter)
+        [HttpPost("me/documents")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadDocument(
+            [FromForm] UploadEnterpriseDocumentRequestDto dto)
         {
-            var result = await _service.GetAllAsync(filter);
+            var userId = GetCurrentUserId();
 
-            return Ok(result);
+            var data = await _service.UploadDocumentAsync(userId, dto);
+
+            var response = new BaseResponse<EnterpriseDocumentResponseDto>(
+                StatusCodeHelper.Created,
+                StatusCodeHelper.Created.Name(),
+                data,
+                "Upload tài liệu thành công"
+            );
+
+            return StatusCode(StatusCodes.Status201Created, response);
         }
 
-        // ================================
-        // UPDATE ENTERPRISE PROFILE
-        // ================================
-        [HttpPut("{id}")]
-        [Authorize]
-        public async Task<IActionResult> Update(
-            Guid id,
-            [FromBody] UpdateRecyclingEnterpriseDto dto)
+        [HttpGet("me/documents")]
+        public async Task<IActionResult> GetMyDocuments()
         {
-            var success = await _service.UpdateAsync(id, dto);
+            var userId = GetCurrentUserId();
 
-            if (!success)
-                return NotFound();
+            var data = await _service.GetMyDocumentsAsync(userId);
 
-            return NoContent();
+            var response = new BaseResponse<List<EnterpriseDocumentResponseDto>>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Lấy danh sách tài liệu thành công"
+            );
+
+            return Ok(response);
         }
 
-        // ================================
-        // UPDATE APPROVAL STATUS (ADMIN)
-        // ================================
-        [HttpPatch("{id}/status")]
-        // [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateStatus(
-            Guid id,
-            [FromBody] UpdateEnterpriseStatusDto dto)
+        [HttpPut("me/environment-license")]
+        public async Task<IActionResult> SetEnvironmentLicense(
+            [FromBody] SetEnvironmentLicenseRequestDto dto)
         {
-            var success = await _service.UpdateStatusAsync(id, dto);
+            var userId = GetCurrentUserId();
 
-            if (!success)
-                return NotFound();
+            var data = await _service.SetEnvironmentLicenseAsync(userId, dto);
 
-            return NoContent();
+            var response = new BaseResponse<EnterpriseProfileResponseDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Cập nhật giấy phép môi trường thành công"
+            );
+
+            return Ok(response);
         }
 
-        // ================================
-        // DELETE ENTERPRISE
-        // ================================
-        [HttpDelete("{id}")]
-        [Authorize]
-        public async Task<IActionResult> Delete(Guid id)
+        [HttpPost("me/submit")]
+        public async Task<IActionResult> SubmitProfile(
+            [FromBody] SubmitEnterpriseProfileRequestDto dto)
         {
-            var success = await _service.DeleteAsync(id);
+            var userId = GetCurrentUserId();
 
-            if (!success)
-                return NotFound();
+            var data = await _service.SubmitProfileAsync(userId, dto);
 
-            return NoContent();
+            var response = new BaseResponse<SubmitEnterpriseProfileResponseDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Gửi hồ sơ doanh nghiệp thành công"
+            );
+
+            return Ok(response);
+        }
+
+        private Guid GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userIdClaim))
+            {
+                throw new BaseException.UnauthorizedException(
+                    "user_id_not_found",
+                    "Không tìm thấy thông tin người dùng trong token.");
+            }
+
+            return Guid.Parse(userIdClaim);
         }
     }
 }

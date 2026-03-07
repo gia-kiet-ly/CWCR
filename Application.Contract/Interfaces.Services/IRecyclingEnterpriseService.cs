@@ -4,35 +4,24 @@ namespace Application.Contract.Interfaces.Services
 {
     public interface IRecyclingEnterpriseService
     {
-        // ================================
-        // CREATE
-        // ================================
-        Task<RecyclingEnterpriseDto> CreateAsync(
+        Task<EnterpriseProfileResponseDto> CreateOrUpdateProfileAsync(
             Guid userId,
-            CreateRecyclingEnterpriseDto dto);
+            CreateOrUpdateEnterpriseProfileRequestDto dto);
 
-        // ================================
-        // READ
-        // ================================
-        Task<RecyclingEnterpriseDto?> GetByIdAsync(Guid id);
+        Task<EnterpriseProfileResponseDto?> GetMyEnterpriseProfileAsync(Guid userId);
 
-        Task<PagedRecyclingEnterpriseDto> GetAllAsync(
-            RecyclingEnterpriseFilterDto filter);
+        Task<EnterpriseDocumentResponseDto> UploadDocumentAsync(
+            Guid userId,
+            UploadEnterpriseDocumentRequestDto dto);
 
-        // ================================
-        // UPDATE
-        // ================================
-        Task<bool> UpdateAsync(
-            Guid id,
-            UpdateRecyclingEnterpriseDto dto);
+        Task<List<EnterpriseDocumentResponseDto>> GetMyDocumentsAsync(Guid userId);
 
-        Task<bool> UpdateStatusAsync(
-            Guid id,
-            UpdateEnterpriseStatusDto dto);
+        Task<EnterpriseProfileResponseDto> SetEnvironmentLicenseAsync(
+            Guid userId,
+            SetEnvironmentLicenseRequestDto dto);
 
-        // ================================
-        // DELETE
-        // ================================
-        Task<bool> DeleteAsync(Guid id);
+        Task<SubmitEnterpriseProfileResponseDto> SubmitProfileAsync(
+            Guid userId,
+            SubmitEnterpriseProfileRequestDto dto);
     }
 }

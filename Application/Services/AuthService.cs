@@ -5,6 +5,7 @@ using Domain.Base;
 using Domain.Entities;
 using Infrastructure.Repo;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 
 namespace Application.Services
 {
@@ -13,15 +14,21 @@ namespace Application.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IJwtTokenGenerator _jwt;
         private readonly IUnitOfWork _uow;
+        private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
         public AuthService(
             UserManager<ApplicationUser> userManager,
             IJwtTokenGenerator jwt,
-            IUnitOfWork uow)
+            IUnitOfWork uow,
+            IEmailService emailService,
+            IConfiguration configuration)
         {
             _userManager = userManager;
             _jwt = jwt;
             _uow = uow;
+            _emailService = emailService;
+            _configuration = configuration;
         }
 
         // ============================
@@ -29,43 +36,21 @@ namespace Application.Services
         // ============================
         public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto request)
         {
-            // check email exists
             var existedUser = await _userManager.FindByEmailAsync(request.Email);
             if (existedUser != null)
+            {
                 throw new BaseException.BadRequestException(
                     "email_already_exists",
-                    $"Email {request.Email} already exists."
-                );
-
-            // allow only 2 roles
-            var allowedRoles = new[] { SystemRoles.Citizen, SystemRoles.RecyclingEnterprise };
-            if (!allowedRoles.Contains(request.Role))
-                throw new BaseException.BadRequestException(
-                    "invalid_role",
-                    "Role is not allowed."
-                );
-
-            // enterprise validation
-            if (request.Role == SystemRoles.RecyclingEnterprise)
-            {
-                if (request.EnterpriseInfo == null)
-                    throw new BaseException.BadRequestException(
-                        "enterprise_info_required",
-                        "EnterpriseInfo is required for Enterprise registration."
-                    );
-
-                var tax = request.EnterpriseInfo.TaxCode?.Trim() ?? "";
-                if (tax.Length < 10 || tax.Length > 13)
-                    throw new BaseException.BadRequestException(
-                        "invalid_tax_code",
-                        "TaxCode must be 10 to 13 characters."
-                    );
+                    $"Email {request.Email} already exists.");
             }
 
-            // BE override IsActive:
-            // - Citizen active now
-            // - Enterprise pending approval => inactive
-            var isActive = request.Role == SystemRoles.Citizen;
+            var allowedRoles = new[] { SystemRoles.Citizen, SystemRoles.RecyclingEnterprise };
+            if (!allowedRoles.Contains(request.Role))
+            {
+                throw new BaseException.BadRequestException(
+                    "invalid_role",
+                    "Role is not allowed.");
+            }
 
             var user = new ApplicationUser
             {
@@ -73,8 +58,9 @@ namespace Application.Services
                 Email = request.Email,
                 FullName = request.FullName,
                 PhoneNumber = request.Phone,
-                IsActive = isActive,
-                CreatedAt = DateTime.UtcNow
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                EmailConfirmed = false
             };
 
             var createResult = await _userManager.CreateAsync(user, request.Password);
@@ -83,14 +69,12 @@ namespace Application.Services
                 var errors = createResult.Errors
                     .Select(e => new KeyValuePair<string, ICollection<string>>(
                         e.Code,
-                        new List<string> { e.Description }
-                    ))
+                        new List<string> { e.Description }))
                     .ToList();
 
                 throw new BaseException.ValidationException(errors);
             }
 
-            // add role; if fail -> rollback user
             var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
             if (!roleResult.Succeeded)
             {
@@ -99,59 +83,150 @@ namespace Application.Services
                 var errors = roleResult.Errors
                     .Select(e => new KeyValuePair<string, ICollection<string>>(
                         e.Code,
-                        new List<string> { e.Description }
-                    ))
+                        new List<string> { e.Description }))
                     .ToList();
 
                 throw new BaseException.ValidationException(errors);
             }
 
-            // if Enterprise: create RecyclingEnterprise profile (Pending Approval)
-            if (request.Role == SystemRoles.RecyclingEnterprise)
+            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            var frontendBaseUrl = _configuration["Frontend:BaseUrl"];
+            if (string.IsNullOrWhiteSpace(frontendBaseUrl))
             {
-                try
-                {
-                    var info = request.EnterpriseInfo!;
-
-                    var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
-
-                    var enterprise = new RecyclingEnterprise
-                    {
-                        Id = Guid.NewGuid(),
-
-                        UserId = user.Id,
-
-                        Name = info.EnterpriseName.Trim(),
-                        TaxCode = info.TaxCode.Trim(),
-                        Address = info.Address.Trim(),
-                        LegalRepresentative = info.LegalRepresentative.Trim(),
-                        RepresentativePosition = info.RepresentativePosition.Trim(),
-                        EnvironmentLicenseFileId = info.EnvironmentLicenseFileId,
-
-                        ApprovalStatus = Core.Enum.EnterpriseApprovalStatus.PendingApproval,
-                        OperationalStatus = Core.Enum.EnterpriseStatus.Active,
-
-                        CreatedTime = DateTimeOffset.UtcNow
-                    };
-
-                    await enterpriseRepo.InsertAsync(enterprise);
-                    await _uow.SaveAsync();
-                }
-                catch
-                {
-                    // rollback user if enterprise creation failed
-                    await _userManager.DeleteAsync(user);
-                    throw;
-                }
+                throw new BaseException.BadRequestException(
+                    "missing_frontend_base_url",
+                    "Frontend:BaseUrl is missing in configuration.");
             }
+
+            var verifyUrl =
+                $"{frontendBaseUrl.TrimEnd('/')}/verify-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+
+            var emailBody = $@"
+                <div style='font-family: Arial, sans-serif; line-height: 1.6;'>
+                    <h2>Verify your email</h2>
+                    <p>Hello {user.FullName},</p>
+                    <p>Please verify your email by clicking the button below:</p>
+                    <p>
+                        <a href='{verifyUrl}'
+                           style='display:inline-block;padding:10px 18px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;'>
+                           Verify Email
+                        </a>
+                    </p>
+                    <p>If the button does not work, copy this link:</p>
+                    <p>{verifyUrl}</p>
+                </div>";
+
+            await _emailService.SendEmailAsync(
+                user.Email!,
+                "Verify your email",
+                emailBody);
 
             return new RegisterResponseDto
             {
                 Id = user.Id,
                 Email = user.Email!,
-                FullName = user.FullName ?? "",
+                FullName = user.FullName ?? string.Empty,
                 Role = request.Role,
-                CreatedAt = user.CreatedAt
+                CreatedAt = user.CreatedAt,
+                RequireEmailVerification = true,
+                Message = "Registration successful. Please verify your email."
+            };
+        }
+
+        // ============================
+        // VERIFY EMAIL
+        // ============================
+        public async Task<EmailVerificationResultDto> VerifyEmailAsync(Guid userId, string token)
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                throw new BaseException.NotFoundException(
+                    "user_not_found",
+                    "User not found.");
+            }
+
+            if (user.EmailConfirmed)
+            {
+                var existingRoles = await _userManager.GetRolesAsync(user);
+                var existingRole = existingRoles.FirstOrDefault() ?? string.Empty;
+
+                var nextStep = "Login";
+
+                if (existingRole == SystemRoles.RecyclingEnterprise)
+                {
+                    var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
+                    var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                        x.UserId == user.Id && !x.IsDeleted);
+
+                    nextStep = enterprise == null ? "CompleteEnterpriseProfile" : "WaitForApproval";
+                }
+
+                return new EmailVerificationResultDto
+                {
+                    Succeeded = true,
+                    Email = user.Email ?? string.Empty,
+                    Role = existingRole,
+                    Message = "Email already verified.",
+                    NextStep = nextStep
+                };
+            }
+
+            var result = await _userManager.ConfirmEmailAsync(user, token);
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors
+                    .Select(e => new KeyValuePair<string, ICollection<string>>(
+                        e.Code,
+                        new List<string> { e.Description }))
+                    .ToList();
+
+                throw new BaseException.ValidationException(errors);
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? string.Empty;
+
+            if (role == SystemRoles.Citizen)
+            {
+                return new EmailVerificationResultDto
+                {
+                    Succeeded = true,
+                    Email = user.Email ?? string.Empty,
+                    Role = role,
+                    Message = "Email verified successfully.",
+                    NextStep = "Login"
+                };
+            }
+
+            if (role == SystemRoles.RecyclingEnterprise)
+            {
+                var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
+                var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                    x.UserId == user.Id && !x.IsDeleted);
+
+                var nextStep = enterprise == null
+                    ? "CompleteEnterpriseProfile"
+                    : "WaitForApproval";
+
+                return new EmailVerificationResultDto
+                {
+                    Succeeded = true,
+                    Email = user.Email ?? string.Empty,
+                    Role = role,
+                    Message = "Email verified successfully.",
+                    NextStep = nextStep
+                };
+            }
+
+            return new EmailVerificationResultDto
+            {
+                Succeeded = true,
+                Email = user.Email ?? string.Empty,
+                Role = role,
+                Message = "Email verified successfully.",
+                NextStep = "Login"
             };
         }
 
@@ -162,31 +237,27 @@ namespace Application.Services
         {
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
+            {
                 throw new BaseException.UnauthorizedException(
                     "invalid_credentials",
-                    "Email or password is incorrect."
-                );
+                    "Email or password is incorrect.");
+            }
 
             var valid = await _userManager.CheckPasswordAsync(user, request.Password);
             if (!valid)
+            {
                 throw new BaseException.UnauthorizedException(
                     "invalid_credentials",
-                    "Email or password is incorrect."
-                );
-
-            // Do not leak which condition failed; but you already separated checks, it's fine for MVP.
-            if (!user.IsActive)
-                throw new BaseException.UnauthorizedException(
-                    "account_pending",
-                    "Account is pending admin approval."
-                );
+                    "Email or password is incorrect.");
+            }
 
             var roles = await _userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault() ?? "";
+            var role = roles.FirstOrDefault() ?? string.Empty;
+
+            await EnsureUserCanLoginAsync(user, role);
 
             var (accessToken, expiredAt) = _jwt.GenerateToken(user.Id, user.Email!, role);
 
-            // Refresh token
             var rawRefreshToken = RefreshTokenGenerator.Generate();
             var refreshTokenHash = RefreshTokenHasher.Hash(rawRefreshToken);
 
@@ -203,62 +274,79 @@ namespace Application.Services
             await refreshRepo.InsertAsync(refreshEntity);
             await _uow.SaveAsync();
 
+            string? enterpriseApprovalStatus = null;
+            bool mustCompleteEnterpriseProfile = false;
+
+            if (role == SystemRoles.RecyclingEnterprise)
+            {
+                var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
+                var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                    x.UserId == user.Id && !x.IsDeleted);
+
+                enterpriseApprovalStatus = enterprise?.ApprovalStatus.ToString();
+                mustCompleteEnterpriseProfile = enterprise == null;
+            }
+
             return new AuthResponseDto
             {
                 AccessToken = accessToken,
                 RefreshToken = rawRefreshToken,
-                ExpiredAt = expiredAt
+                ExpiredAt = expiredAt,
+
+                UserId = user.Id,
+                Email = user.Email ?? string.Empty,
+                FullName = user.FullName ?? string.Empty,
+                Role = role,
+
+                EmailConfirmed = user.EmailConfirmed,
+                IsActive = user.IsActive,
+
+                EnterpriseApprovalStatus = enterpriseApprovalStatus,
+                CanLogin = true,
+                MustCompleteEnterpriseProfile = mustCompleteEnterpriseProfile
             };
         }
 
         // ============================
         // REFRESH TOKEN
         // ============================
-        public async Task<AuthResponseDto> RefreshAsync(string refreshToken)
+        public async Task<AuthResponseDto> RefreshAsync(RefreshRequestDto request)
         {
             var refreshRepo = _uow.GetRepository<RefreshToken>();
 
-            var hashedToken = RefreshTokenHasher.Hash(refreshToken);
+            var hashedToken = RefreshTokenHasher.Hash(request.RefreshToken);
 
             var storedToken = await refreshRepo.FirstOrDefaultAsync(r => r.TokenHash == hashedToken);
 
-            if (storedToken == null ||
-                storedToken.IsRevoked ||
-                storedToken.Expires <= DateTime.UtcNow)
+            if (storedToken == null || storedToken.IsRevoked || storedToken.Expires <= DateTime.UtcNow)
             {
                 throw new BaseException.UnauthorizedException(
                     "invalid_refresh_token",
-                    "Refresh token is invalid or expired."
-                );
+                    "Refresh token is invalid or expired.");
             }
 
-            // revoke old
             storedToken.IsRevoked = true;
             refreshRepo.Update(storedToken);
 
             var user = await _userManager.FindByIdAsync(storedToken.UserId.ToString());
             if (user == null)
+            {
                 throw new BaseException.UnauthorizedException(
                     "user_not_found",
-                    "User not found."
-                );
-
-            if (!user.IsActive)
-                throw new BaseException.UnauthorizedException(
-                    "account_pending",
-                    "Account is pending admin approval."
-                );
+                    "User not found.");
+            }
 
             var roles = await _userManager.GetRolesAsync(user);
-            var role = roles.FirstOrDefault() ?? "";
+            var role = roles.FirstOrDefault() ?? string.Empty;
+
+            await EnsureUserCanLoginAsync(user, role);
 
             var (newAccessToken, expiredAt) = _jwt.GenerateToken(user.Id, user.Email!, role);
 
-            // issue new refresh token
             var rawRefreshToken = RefreshTokenGenerator.Generate();
             var refreshTokenHash = RefreshTokenHasher.Hash(rawRefreshToken);
 
-            var refreshEntity = new RefreshToken
+            var newRefreshEntity = new RefreshToken
             {
                 Id = Guid.NewGuid(),
                 TokenHash = refreshTokenHash,
@@ -267,15 +355,88 @@ namespace Application.Services
                 UserId = user.Id
             };
 
-            await refreshRepo.InsertAsync(refreshEntity);
+            await refreshRepo.InsertAsync(newRefreshEntity);
             await _uow.SaveAsync();
+
+            string? enterpriseApprovalStatus = null;
+            bool mustCompleteEnterpriseProfile = false;
+
+            if (role == SystemRoles.RecyclingEnterprise)
+            {
+                var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
+                var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                    x.UserId == user.Id && !x.IsDeleted);
+
+                enterpriseApprovalStatus = enterprise?.ApprovalStatus.ToString();
+                mustCompleteEnterpriseProfile = enterprise == null;
+            }
 
             return new AuthResponseDto
             {
                 AccessToken = newAccessToken,
                 RefreshToken = rawRefreshToken,
-                ExpiredAt = expiredAt
+                ExpiredAt = expiredAt,
+
+                UserId = user.Id,
+                Email = user.Email ?? string.Empty,
+                FullName = user.FullName ?? string.Empty,
+                Role = role,
+
+                EmailConfirmed = user.EmailConfirmed,
+                IsActive = user.IsActive,
+
+                EnterpriseApprovalStatus = enterpriseApprovalStatus,
+                CanLogin = true,
+                MustCompleteEnterpriseProfile = mustCompleteEnterpriseProfile
             };
+        }
+
+        // ============================
+        // PRIVATE
+        // ============================
+        private async Task EnsureUserCanLoginAsync(ApplicationUser user, string role)
+        {
+            if (!user.EmailConfirmed)
+            {
+                throw new BaseException.UnauthorizedException(
+                    "email_not_confirmed",
+                    "Please verify your email before logging in.");
+            }
+
+            if (!user.IsActive)
+            {
+                throw new BaseException.UnauthorizedException(
+                    "account_inactive",
+                    "Your account is inactive.");
+            }
+
+            if (role == SystemRoles.Citizen)
+            {
+                return;
+            }
+
+            if (role == SystemRoles.RecyclingEnterprise)
+            {
+                var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
+                var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                    x.UserId == user.Id && !x.IsDeleted);
+
+                if (enterprise == null)
+                {
+                    throw new BaseException.UnauthorizedException(
+                        "enterprise_profile_not_completed",
+                        "Please complete your enterprise profile before logging in.");
+                }
+
+                if (enterprise.ApprovalStatus != Core.Enum.EnterpriseApprovalStatus.Approved)
+                {
+                    throw new BaseException.UnauthorizedException(
+                        "enterprise_not_approved",
+                        "Your enterprise account is waiting for admin approval.");
+                }
+
+                return;
+            }
         }
     }
 }
