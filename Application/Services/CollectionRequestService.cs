@@ -4,6 +4,7 @@ using Application.Contract.Interfaces.Services;
 using Core.Enum;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Application.Services
 {
@@ -17,14 +18,13 @@ namespace Application.Services
         }
 
         // =============================
-        // SYSTEM: DISPATCH (MATCHING TOP1)
+        // SYSTEM: DISPATCH
         // =============================
         public async Task CreateTop1RequestsForReportAsync(Guid wasteReportId)
         {
             var reportRepo = _uow.GetRepository<WasteReport>();
             var reqRepo = _uow.GetRepository<CollectionRequest>();
 
-            // Load report + wastes (items)
             var report = await reportRepo.NoTrackingEntities
                 .Include(r => r.Wastes)
                 .FirstOrDefaultAsync(r => r.Id == wasteReportId && !r.IsDeleted);
@@ -32,85 +32,112 @@ namespace Application.Services
             if (report == null)
                 throw new Exception("WasteReport not found");
 
-            if (string.IsNullOrWhiteSpace(report.RegionCode) || report.RegionCode == "UNKNOWN")
-            {
-                // MVP: nếu chưa resolve được region code thì bỏ qua dispatch
-                // (sau này bạn có thể cho retry job)
-                return;
-            }
-
-            // For each item -> create 1 offered request for best enterprise
             foreach (var item in report.Wastes)
             {
-                // Idempotent: nếu item đã có request rồi thì skip
-                var existed = await reqRepo.NoTrackingEntities.AnyAsync(x =>
-                    x.WasteReportWasteId == item.Id && !x.IsDeleted);
+                var existed = await reqRepo.NoTrackingEntities
+                    .AnyAsync(x => x.WasteReportWasteId == item.Id && !x.IsDeleted);
 
                 if (existed) continue;
 
-                var bestEnterpriseId = await FindBestEnterpriseTop1Async(report.RegionCode, item.WasteTypeId);
+                var bestEnterpriseId = await FindBestEnterpriseTop1Async(
+                    report.RegionCode,
+                    item.WasteTypeId);
 
                 if (bestEnterpriseId == null)
-                {
-                    // MVP: không có enterprise phù hợp -> skip
                     continue;
-                }
 
                 var request = new CollectionRequest
                 {
                     WasteReportWasteId = item.Id,
                     EnterpriseId = bestEnterpriseId.Value,
                     Status = CollectionRequestStatus.Offered,
-                    PriorityScore = 100 // MVP: hardcode; sau này bạn tính theo distance/capacity/priority
+                    PriorityScore = 100
                 };
 
                 await reqRepo.InsertAsync(request);
-                await _uow.SaveAsync();
             }
+
+            await _uow.SaveAsync();
         }
 
         /// <summary>
-        /// TOP1 matching:
-        /// 1) RegionCode match trước (EnterpriseServiceArea.RegionCode exact match MVP)
-        /// 2) Capability match sau (EnterpriseWasteCapability.WasteTypeId)
-        /// 3) Chọn top1 theo DailyCapacityKg (MVP)
+        /// Dispatch logic:
+        /// RegionCode contains District.Code OR Ward.Code
         /// </summary>
-        private async Task<Guid?> FindBestEnterpriseTop1Async(string regionCode, Guid wasteTypeId)
+        private async Task<Guid?> FindBestEnterpriseTop1Async(
+            string regionCode,
+            Guid wasteTypeId)
         {
+            if (string.IsNullOrWhiteSpace(regionCode))
+                return null;
+
             var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
             var areaRepo = _uow.GetRepository<EnterpriseServiceArea>();
             var capRepo = _uow.GetRepository<EnterpriseWasteCapability>();
+            var districtRepo = _uow.GetRepository<District>();
+            var wardRepo = _uow.GetRepository<Ward>();
 
-            // Region filter FIRST
+            // match district
+            var districtIds = await districtRepo.NoTrackingEntities
+                .Where(x => !x.IsDeleted &&
+                    EF.Functions.Like(regionCode, "%" + x.Code + "%"))
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            // match ward
+            var wardIds = await wardRepo.NoTrackingEntities
+                .Where(x => !x.IsDeleted &&
+                    EF.Functions.Like(regionCode, "%" + x.Code + "%"))
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            if (!districtIds.Any() && !wardIds.Any())
+                return null;
+
+            // enterprise trong khu vực
             var enterprisesInArea =
                 from e in enterpriseRepo.NoTrackingEntities
-                join a in areaRepo.NoTrackingEntities on e.Id equals a.EnterpriseId
-                where !e.IsDeleted && !a.IsDeleted
+                join a in areaRepo.NoTrackingEntities
+                    on e.Id equals a.EnterpriseId
+                where !e.IsDeleted
+                      && !a.IsDeleted
                       && e.ApprovalStatus == EnterpriseApprovalStatus.Approved
                       && e.OperationalStatus == EnterpriseStatus.Active
-                      && a.RegionCode == regionCode
+                      && (
+                            districtIds.Contains(a.DistrictId)
+                            || (a.WardId != null && wardIds.Contains(a.WardId.Value))
+                         )
                 select e.Id;
 
-            // Capability filter SECOND
+            // enterprise có khả năng xử lý waste type
             var candidates =
-                from eid in enterprisesInArea
-                join c in capRepo.NoTrackingEntities on eid equals c.EnterpriseId
+                from eid in enterprisesInArea.Distinct()
+                join c in capRepo.NoTrackingEntities
+                    on eid equals c.EnterpriseId
                 where !c.IsDeleted && c.WasteTypeId == wasteTypeId
-                select new { EnterpriseId = eid, c.DailyCapacityKg };
+                select new
+                {
+                    EnterpriseId = eid,
+                    c.DailyCapacityKg
+                };
 
-            // Top1: pick highest capacity
-            var best = await candidates
+            var bestEnterpriseId = await candidates
                 .OrderByDescending(x => x.DailyCapacityKg)
                 .Select(x => x.EnterpriseId)
                 .FirstOrDefaultAsync();
 
-            return best == Guid.Empty ? null : best;
+            if (bestEnterpriseId == Guid.Empty)
+                return null;
+
+            return bestEnterpriseId;
         }
 
         // =============================
         // ENTERPRISE: INBOX
         // =============================
-        public async Task<PagedCollectionRequestDto> GetPagedForEnterpriseAsync(Guid enterpriseId, CollectionRequestFilterDto filter)
+        public async Task<PagedCollectionRequestDto> GetPagedForEnterpriseAsync(
+            Guid enterpriseId,
+            CollectionRequestFilterDto filter)
         {
             var repo = _uow.GetRepository<CollectionRequest>();
 
@@ -147,77 +174,80 @@ namespace Application.Services
         }
 
         // =============================
-        // ENTERPRISE: ACTIONS
+        // ACCEPT
         // =============================
         public async Task<bool> AcceptAsync(Guid enterpriseId, Guid requestId)
         {
             var repo = _uow.GetRepository<CollectionRequest>();
 
-            // 1) Get WasteReportWasteId (no tracking)
             var info = await repo.NoTrackingEntities
                 .Where(x => !x.IsDeleted && x.Id == requestId && x.EnterpriseId == enterpriseId)
-                .Select(x => new { x.Id, x.EnterpriseId, x.WasteReportWasteId })
+                .Select(x => new
+                {
+                    x.Id,
+                    x.EnterpriseId,
+                    x.WasteReportWasteId,
+                    x.Status
+                })
                 .FirstOrDefaultAsync();
 
-            if (info == null) return false;
+            if (info == null || info.Status != CollectionRequestStatus.Offered)
+                return false;
 
-            // ✅ IMPORTANT: set đúng table name trong DB
             const string Table = "CollectionRequests";
 
-            // 2) Atomic accept:
-            // - Chỉ accept nếu request đang Offered
-            // - Và chưa có request "win" (Accepted/Assigned/Completed) cho cùng WasteReportWasteId
             var sql = $@"
 UPDATE {Table}
 SET Status = {{0}}, LastUpdatedTime = {{1}}
 WHERE Id = {{2}}
-  AND EnterpriseId = {{3}}
-  AND IsDeleted = 0
-  AND Status = {{4}}
-  AND NOT EXISTS (
-      SELECT 1
-      FROM {Table} cr
-      WHERE cr.IsDeleted = 0
-        AND cr.WasteReportWasteId = {{5}}
-        AND cr.Status IN ({{6}}, {{7}}, {{8}})
-  );";
-
-            var now = DateTimeOffset.UtcNow;
+AND EnterpriseId = {{3}}
+AND IsDeleted = 0
+AND Status = {{4}}
+AND NOT EXISTS (
+SELECT 1
+FROM {Table}
+WHERE WasteReportWasteId = {{5}}
+AND IsDeleted = 0
+AND Status IN ({{6}}, {{7}}, {{8}})
+);";
 
             var rows = await _uow.ExecuteSqlRawAsync(
                 sql,
-                (int)CollectionRequestStatus.Accepted,
-                now,
+                CollectionRequestStatus.Accepted.ToString(),
+                DateTimeOffset.UtcNow,
                 info.Id,
                 info.EnterpriseId,
-                (int)CollectionRequestStatus.Offered,
+                CollectionRequestStatus.Offered.ToString(),
                 info.WasteReportWasteId,
-                (int)CollectionRequestStatus.Accepted,
-                (int)CollectionRequestStatus.Assigned,
-                (int)CollectionRequestStatus.Completed
+                CollectionRequestStatus.Accepted.ToString(),
+                CollectionRequestStatus.Assigned.ToString(),
+                CollectionRequestStatus.Completed.ToString()
             );
 
             return rows > 0;
         }
 
+        // =============================
+        // REJECT
+        // =============================
         public async Task<bool> RejectAsync(Guid enterpriseId, Guid requestId, string? reason)
         {
             var repo = _uow.GetRepository<CollectionRequest>();
 
             var entity = await repo.Entities.FirstOrDefaultAsync(x =>
-                x.Id == requestId && !x.IsDeleted && x.EnterpriseId == enterpriseId);
+                x.Id == requestId &&
+                !x.IsDeleted &&
+                x.EnterpriseId == enterpriseId);
 
-            if (entity == null) return false;
-
-            if (entity.Status != CollectionRequestStatus.Offered)
+            if (entity == null || entity.Status != CollectionRequestStatus.Offered)
                 return false;
 
             entity.Status = CollectionRequestStatus.Rejected;
             entity.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-            // MVP: entity chưa có field Reason -> bỏ qua
             repo.Update(entity);
             await _uow.SaveAsync();
+
             return true;
         }
 
@@ -232,10 +262,8 @@ WHERE Id = {{2}}
             return new CollectionRequestResponseDto
             {
                 Id = r.Id,
-
                 WasteReportWasteId = r.WasteReportWasteId,
                 WasteReportId = report.Id,
-
                 EnterpriseId = r.EnterpriseId,
                 Status = r.Status.ToString(),
                 PriorityScore = r.PriorityScore,

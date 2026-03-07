@@ -109,8 +109,13 @@ var app = builder.Build();
 //Data Seed
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+    var services = scope.ServiceProvider;
+
+    var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
     await RoleSeeder.SeedAsync(roleManager);
+
+    var context = services.GetRequiredService<ApplicationDbContext>();
+    await LocationSeeder.SeedAsync(context);
 }
 
 // Configure the HTTP request pipeline.
