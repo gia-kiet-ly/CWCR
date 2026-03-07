@@ -4,6 +4,7 @@ using Infrastructure.DbContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260307083333_AddDistrictAndWard")]
+    partial class AddDistrictAndWard
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -622,9 +625,6 @@ namespace Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid>("DistrictId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("EnterpriseId")
                         .HasColumnType("uniqueidentifier");
 
@@ -637,18 +637,15 @@ namespace Infrastructure.Migrations
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid?>("WardId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("RegionCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DistrictId");
-
-                    b.HasIndex("WardId");
-
-                    b.HasIndex("EnterpriseId", "DistrictId", "WardId")
-                        .IsUnique()
-                        .HasFilter("[WardId] IS NOT NULL");
+                    b.HasIndex("EnterpriseId", "RegionCode")
+                        .IsUnique();
 
                     b.ToTable("EnterpriseServiceAreas");
                 });
@@ -1478,28 +1475,13 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.EnterpriseServiceArea", b =>
                 {
-                    b.HasOne("Domain.Entities.District", "District")
-                        .WithMany()
-                        .HasForeignKey("DistrictId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("RecyclingEnterprise", "Enterprise")
                         .WithMany("ServiceAreas")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.Ward", "Ward")
-                        .WithMany()
-                        .HasForeignKey("WardId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("District");
-
                     b.Navigation("Enterprise");
-
-                    b.Navigation("Ward");
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseWasteCapability", b =>
