@@ -1583,7 +1583,7 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
+                    b.HasOne("RecyclingEnterprise", "Enterprise");
                     b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
                         .WithMany("ServiceAreas")
                         .HasForeignKey("EnterpriseId")
