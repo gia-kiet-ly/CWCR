@@ -40,7 +40,6 @@
     <Folder Include="ExternalService\" />
     <Folder Include="Infrastructure\" />
     <Folder Include="MappingProfiles\" />
-    <Folder Include="Utils\" />
   </ItemGroup>
 
 </Project>

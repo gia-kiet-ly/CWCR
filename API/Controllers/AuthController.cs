@@ -24,18 +24,30 @@ namespace API.Controllers
         {
             var data = await _auth.RegisterAsync(request);
 
-            var message = request.Role == Infrastructure.Repo.SystemRoles.RecyclingEnterprise
-                ? "Đăng ký thành công, vui lòng chờ admin phê duyệt"
-                : "Đăng ký thành công";
-
             var response = new BaseResponse<RegisterResponseDto>(
                 StatusCodeHelper.Created,
                 StatusCodeHelper.Created.Name(),
                 data,
-                message
+                "Đăng ký thành công, vui lòng kiểm tra email để xác thực tài khoản."
             );
 
             return StatusCode(StatusCodes.Status201Created, response);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromQuery] Guid userId, [FromQuery] string token)
+        {
+            var data = await _auth.VerifyEmailAsync(userId, token);
+
+            var response = new BaseResponse<EmailVerificationResultDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Xác thực email thành công."
+            );
+
+            return Ok(response);
         }
 
         [AllowAnonymous]
@@ -58,7 +70,7 @@ namespace API.Controllers
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] RefreshRequestDto request)
         {
-            var data = await _auth.RefreshAsync(request.RefreshToken);
+            var data = await _auth.RefreshAsync(request);
 
             var response = new BaseResponse<AuthResponseDto>(
                 StatusCodeHelper.OK,

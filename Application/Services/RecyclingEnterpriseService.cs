@@ -2,7 +2,10 @@
 using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Core.Enum;
+using Domain.Base;
 using Domain.Entities;
+using Infrastructure.Repo;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
@@ -10,173 +13,394 @@ namespace Application.Services
     public class RecyclingEnterpriseService : IRecyclingEnterpriseService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IFileStorageService _fileStorageService;
 
-        public RecyclingEnterpriseService(IUnitOfWork unitOfWork)
+        public RecyclingEnterpriseService(
+            IUnitOfWork unitOfWork,
+            UserManager<ApplicationUser> userManager,
+            IFileStorageService fileStorageService)
         {
             _unitOfWork = unitOfWork;
+            _userManager = userManager;
+            _fileStorageService = fileStorageService;
         }
 
-        // CREATE
-        public async Task<RecyclingEnterpriseDto> CreateAsync(Guid userId, CreateRecyclingEnterpriseDto dto)
+        public async Task<EnterpriseProfileResponseDto> CreateOrUpdateProfileAsync(
+            Guid userId,
+            CreateOrUpdateEnterpriseProfileRequestDto dto)
         {
-            var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var user = await EnsureEnterpriseUserAsync(userId);
 
-            var entity = new RecyclingEnterprise
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+
+            var duplicatedTaxCode = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                x.UserId != userId &&
+                !x.IsDeleted &&
+                x.TaxCode == dto.TaxCode);
+
+            if (duplicatedTaxCode != null)
             {
-                UserId = userId,
-
-                Name = dto.Name,
-                TaxCode = dto.TaxCode,
-                Address = dto.Address,
-                LegalRepresentative = dto.LegalRepresentative,
-                RepresentativePosition = dto.RepresentativePosition,
-                EnvironmentLicenseFileId = dto.EnvironmentLicenseFileId,
-
-                ApprovalStatus = EnterpriseApprovalStatus.PendingApproval,
-                OperationalStatus = EnterpriseStatus.Active,
-
-                CreatedTime = DateTimeOffset.UtcNow
-            };
-
-            await repo.InsertAsync(entity);
-            await _unitOfWork.SaveAsync();
-
-            return MapToDto(entity);
-        }
-
-        // GET BY ID
-        public async Task<RecyclingEnterpriseDto?> GetByIdAsync(Guid id)
-        {
-            var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
-
-            var entity = await repo.NoTrackingEntities
-                .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
-
-            return entity == null ? null : MapToDto(entity);
-        }
-
-        // GET LIST + PAGING
-        public async Task<PagedRecyclingEnterpriseDto> GetAllAsync(RecyclingEnterpriseFilterDto filter)
-        {
-            var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
-
-            var query = repo.NoTrackingEntities
-                .Where(x => !x.IsDeleted);
-
-            if (!string.IsNullOrWhiteSpace(filter.Name))
-                query = query.Where(x => x.Name.Contains(filter.Name));
-
-            if (!string.IsNullOrWhiteSpace(filter.Address))
-                query = query.Where(x => x.Address.Contains(filter.Address));
-
-            if (!string.IsNullOrWhiteSpace(filter.Status) &&
-                Enum.TryParse<EnterpriseApprovalStatus>(filter.Status, true, out var approval))
-            {
-                query = query.Where(x => x.ApprovalStatus == approval);
+                throw new BaseException.BadRequestException(
+                    "tax_code_already_exists",
+                    "Tax code already exists.");
             }
 
-            var total = await query.CountAsync();
+            var enterprise = await enterpriseRepo.Entities
+                .Include(x => x.Documents)
+                .FirstOrDefaultAsync(x => x.UserId == userId && !x.IsDeleted);
 
-            var items = await query
-                .OrderByDescending(x => x.CreatedTime)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
+            if (enterprise == null)
+            {
+                enterprise = new RecyclingEnterprise
+                {
+                    UserId = userId,
+                    Name = dto.Name.Trim(),
+                    TaxCode = dto.TaxCode.Trim(),
+                    Address = dto.Address.Trim(),
+                    LegalRepresentative = dto.LegalRepresentative.Trim(),
+                    RepresentativePosition = dto.RepresentativePosition.Trim(),
+                    EnvironmentLicenseFileId = dto.EnvironmentLicenseFileId,
+                    ApprovalStatus = EnterpriseApprovalStatus.PendingApproval,
+                    OperationalStatus = EnterpriseStatus.Active,
+                    CreatedTime = DateTimeOffset.UtcNow
+                };
+
+                await enterpriseRepo.InsertAsync(enterprise);
+            }
+            else
+            {
+                //if (enterprise.ApprovalStatus == EnterpriseApprovalStatus.Approved)
+                //{
+                //    throw new BaseException.BadRequestException(
+                //        "enterprise_already_approved",
+                //        "Approved enterprise profile cannot be edited with this action.");
+                //} nếu muốn 1 khi đã approve thì không cho update nữa
+
+                enterprise.Name = dto.Name.Trim();
+                enterprise.TaxCode = dto.TaxCode.Trim();
+                enterprise.Address = dto.Address.Trim();
+                enterprise.LegalRepresentative = dto.LegalRepresentative.Trim();
+                enterprise.RepresentativePosition = dto.RepresentativePosition.Trim();
+                enterprise.EnvironmentLicenseFileId = dto.EnvironmentLicenseFileId;
+
+                // hễ profile thay đổi thì quay lại chờ duyệt
+                enterprise.ApprovalStatus = EnterpriseApprovalStatus.PendingApproval;
+                enterprise.SubmittedAt = DateTime.UtcNow;
+                enterprise.ReviewedAt = null;
+                enterprise.ReviewedByUserId = null;
+                enterprise.RejectionReason = null;
+                enterprise.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+                enterpriseRepo.Update(enterprise);
+            }
+
+            await _unitOfWork.SaveAsync();
+
+            enterprise = await enterpriseRepo.Entities
+                .Include(x => x.Documents)
+                .FirstAsync(x => x.UserId == userId && !x.IsDeleted);
+
+            return MapEnterpriseProfileToDto(enterprise);
+        }
+
+        public async Task<EnterpriseProfileResponseDto?> GetMyEnterpriseProfileAsync(Guid userId)
+        {
+            await EnsureEnterpriseUserAsync(userId);
+
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+
+            var enterprise = await enterpriseRepo.Entities
+                .Include(x => x.Documents)
+                .FirstOrDefaultAsync(x => x.UserId == userId && !x.IsDeleted);
+
+            if (enterprise == null)
+            {
+                return null;
+            }
+
+            return MapEnterpriseProfileToDto(enterprise);
+        }
+
+        public async Task<EnterpriseDocumentResponseDto> UploadDocumentAsync(
+            Guid userId,
+            UploadEnterpriseDocumentRequestDto dto)
+        {
+            await EnsureEnterpriseUserAsync(userId);
+
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var documentRepo = _unitOfWork.GetRepository<EnterpriseDocument>();
+
+            var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                x.UserId == userId && !x.IsDeleted);
+
+            if (enterprise == null)
+            {
+                throw new BaseException.BadRequestException(
+                    "enterprise_profile_not_found",
+                    "Please create enterprise profile before uploading documents.");
+            }
+
+            if (dto.File == null || dto.File.Length == 0)
+            {
+                throw new BaseException.BadRequestException(
+                    "invalid_file",
+                    "File is required.");
+            }
+
+            var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg" };
+            var extension = Path.GetExtension(dto.File.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                throw new BaseException.BadRequestException(
+                    "unsupported_file_type",
+                    "Only pdf, doc, docx, png, jpg, jpeg files are allowed.");
+            }
+
+            var saveResult = await _fileStorageService.SaveFileAsync(
+                dto.File,
+                "uploads/enterprise-documents");
+
+            var document = new EnterpriseDocument
+            {
+                RecyclingEnterpriseId = enterprise.Id,
+                DocumentType = dto.DocumentType,
+                OriginalFileName = dto.File.FileName,
+                StoredFileName = saveResult.StoredFileName,
+                FileUrl = saveResult.FileUrl,
+                ContentType = saveResult.ContentType,
+                FileSize = saveResult.FileSize,
+                UploadedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+            await documentRepo.InsertAsync(document);
+            await _unitOfWork.SaveAsync();
+
+            if (dto.DocumentType == EnterpriseDocumentType.EnvironmentLicense &&
+                enterprise.EnvironmentLicenseFileId == null)
+            {
+                enterprise.EnvironmentLicenseFileId = document.Id;
+                enterprise.LastUpdatedTime = DateTimeOffset.UtcNow;
+                enterpriseRepo.Update(enterprise);
+                await _unitOfWork.SaveAsync();
+            }
+
+            return MapEnterpriseDocumentToDto(document);
+        }
+
+        public async Task<List<EnterpriseDocumentResponseDto>> GetMyDocumentsAsync(Guid userId)
+        {
+            await EnsureEnterpriseUserAsync(userId);
+
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var documentRepo = _unitOfWork.GetRepository<EnterpriseDocument>();
+
+            var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                x.UserId == userId && !x.IsDeleted);
+
+            if (enterprise == null)
+            {
+                throw new BaseException.NotFoundException(
+                    "enterprise_profile_not_found",
+                    "Enterprise profile not found.");
+            }
+
+            var documents = await documentRepo.NoTrackingEntities
+                .Where(x => x.RecyclingEnterpriseId == enterprise.Id && !x.IsDeleted)
+                .OrderByDescending(x => x.UploadedAt)
                 .ToListAsync();
 
-            return new PagedRecyclingEnterpriseDto
+            return documents.Select(MapEnterpriseDocumentToDto).ToList();
+        }
+
+        public async Task<EnterpriseProfileResponseDto> SetEnvironmentLicenseAsync(
+            Guid userId,
+            SetEnvironmentLicenseRequestDto dto)
+        {
+            await EnsureEnterpriseUserAsync(userId);
+
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var documentRepo = _unitOfWork.GetRepository<EnterpriseDocument>();
+
+            var enterprise = await enterpriseRepo.Entities
+                .Include(x => x.Documents)
+                .FirstOrDefaultAsync(x => x.UserId == userId && !x.IsDeleted);
+
+            if (enterprise == null)
             {
-                TotalCount = total,
-                PageNumber = filter.PageNumber,
-                PageSize = filter.PageSize,
-                Items = items.Select(MapToDto).ToList()
+                throw new BaseException.NotFoundException(
+                    "enterprise_profile_not_found",
+                    "Enterprise profile not found.");
+            }
+
+            var document = await documentRepo.FirstOrDefaultAsync(x =>
+                x.Id == dto.DocumentId &&
+                x.RecyclingEnterpriseId == enterprise.Id &&
+                !x.IsDeleted);
+
+            if (document == null)
+            {
+                throw new BaseException.NotFoundException(
+                    "enterprise_document_not_found",
+                    "Enterprise document not found.");
+            }
+
+            enterprise.EnvironmentLicenseFileId = document.Id;
+            enterprise.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+            enterpriseRepo.Update(enterprise);
+            await _unitOfWork.SaveAsync();
+
+            return MapEnterpriseProfileToDto(enterprise);
+        }
+
+        public async Task<SubmitEnterpriseProfileResponseDto> SubmitProfileAsync(
+            Guid userId,
+            SubmitEnterpriseProfileRequestDto dto)
+        {
+            await EnsureEnterpriseUserAsync(userId);
+
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var documentRepo = _unitOfWork.GetRepository<EnterpriseDocument>();
+
+            var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
+                x.UserId == userId && !x.IsDeleted);
+
+            if (enterprise == null)
+            {
+                throw new BaseException.NotFoundException(
+                    "enterprise_profile_not_found",
+                    "Enterprise profile not found.");
+            }
+
+            var hasAnyDocument = await documentRepo.NoTrackingEntities.AnyAsync(x =>
+                x.RecyclingEnterpriseId == enterprise.Id && !x.IsDeleted);
+
+            if (!hasAnyDocument)
+            {
+                throw new BaseException.BadRequestException(
+                    "enterprise_documents_required",
+                    "Please upload at least one enterprise document before submitting.");
+            }
+
+            if (enterprise.EnvironmentLicenseFileId == null)
+            {
+                throw new BaseException.BadRequestException(
+                    "environment_license_required",
+                    "Please select an environment license document before submitting.");
+            }
+
+            var selectedLicenseDocument = await documentRepo.FirstOrDefaultAsync(x =>
+                x.Id == enterprise.EnvironmentLicenseFileId.Value &&
+                x.RecyclingEnterpriseId == enterprise.Id &&
+                !x.IsDeleted);
+
+            if (selectedLicenseDocument == null)
+            {
+                throw new BaseException.BadRequestException(
+                    "invalid_environment_license_document",
+                    "Selected environment license document is invalid.");
+            }
+
+            enterprise.ApprovalStatus = EnterpriseApprovalStatus.PendingApproval;
+            enterprise.SubmittedAt = DateTime.UtcNow;
+            enterprise.ReviewedAt = null;
+            enterprise.ReviewedByUserId = null;
+            enterprise.RejectionReason = null;
+            enterprise.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+            enterpriseRepo.Update(enterprise);
+            await _unitOfWork.SaveAsync();
+
+            return new SubmitEnterpriseProfileResponseDto
+            {
+                EnterpriseId = enterprise.Id,
+                ApprovalStatus = enterprise.ApprovalStatus.ToString(),
+                SubmittedAt = enterprise.SubmittedAt!.Value,
+                Message = "Enterprise profile submitted successfully and is waiting for approval."
             };
         }
 
-        // UPDATE
-        public async Task<bool> UpdateAsync(Guid id, UpdateRecyclingEnterpriseDto dto)
+        private async Task<ApplicationUser> EnsureEnterpriseUserAsync(Guid userId)
         {
-            var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null || user.IsDeleted)
+            {
+                throw new BaseException.NotFoundException(
+                    "user_not_found",
+                    "User not found.");
+            }
 
-            var entity = await repo.GetByIdAsync(id);
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? string.Empty;
 
-            if (entity == null || entity.IsDeleted)
-                return false;
+            if (role != SystemRoles.RecyclingEnterprise)
+            {
+                throw new BaseException.UnauthorizedException(
+                    "enterprise_role_required",
+                    "Only enterprise accounts can perform this action.");
+            }
 
-            entity.Name = dto.Name;
-            entity.TaxCode = dto.TaxCode;
-            entity.Address = dto.Address;
-            entity.LegalRepresentative = dto.LegalRepresentative;
-            entity.RepresentativePosition = dto.RepresentativePosition;
-            entity.EnvironmentLicenseFileId = dto.EnvironmentLicenseFileId;
+            if (!user.EmailConfirmed)
+            {
+                throw new BaseException.UnauthorizedException(
+                    "email_not_confirmed",
+                    "Please verify your email before continuing.");
+            }
 
-            entity.LastUpdatedTime = DateTimeOffset.UtcNow;
+            if (!user.IsActive)
+            {
+                throw new BaseException.UnauthorizedException(
+                    "account_inactive",
+                    "Your account is inactive.");
+            }
 
-            repo.Update(entity);
-            await _unitOfWork.SaveAsync();
-
-            return true;
+            return user;
         }
 
-        // UPDATE APPROVAL STATUS (ADMIN)
-        public async Task<bool> UpdateStatusAsync(Guid id, UpdateEnterpriseStatusDto dto)
+        private static EnterpriseProfileResponseDto MapEnterpriseProfileToDto(RecyclingEnterprise entity)
         {
-            var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
-
-            var entity = await repo.GetByIdAsync(id);
-
-            if (entity == null || entity.IsDeleted)
-                return false;
-
-            if (!Enum.TryParse<EnterpriseApprovalStatus>(dto.Status, true, out var newStatus))
-                return false;
-
-            entity.ApprovalStatus = newStatus;
-            entity.LastUpdatedTime = DateTimeOffset.UtcNow;
-
-            repo.Update(entity);
-            await _unitOfWork.SaveAsync();
-
-            return true;
-        }
-
-        // DELETE (SOFT DELETE)
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            var repo = _unitOfWork.GetRepository<RecyclingEnterprise>();
-
-            var entity = await repo.GetByIdAsync(id);
-
-            if (entity == null)
-                return false;
-
-            entity.IsDeleted = true;
-            entity.DeletedTime = DateTimeOffset.UtcNow;
-
-            repo.Update(entity);
-            await _unitOfWork.SaveAsync();
-
-            return true;
-        }
-
-        // MAPPING
-        private static RecyclingEnterpriseDto MapToDto(RecyclingEnterprise entity)
-        {
-            return new RecyclingEnterpriseDto
+            return new EnterpriseProfileResponseDto
             {
                 Id = entity.Id,
                 UserId = entity.UserId,
-
                 Name = entity.Name,
                 TaxCode = entity.TaxCode,
                 Address = entity.Address,
                 LegalRepresentative = entity.LegalRepresentative,
                 RepresentativePosition = entity.RepresentativePosition,
                 EnvironmentLicenseFileId = entity.EnvironmentLicenseFileId,
-
                 ApprovalStatus = entity.ApprovalStatus.ToString(),
                 OperationalStatus = entity.OperationalStatus.ToString(),
+                SubmittedAt = entity.SubmittedAt,
+                ReviewedAt = entity.ReviewedAt,
+                ReviewedByUserId = entity.ReviewedByUserId,
+                RejectionReason = entity.RejectionReason,
+                CreatedTime = entity.CreatedTime,
+                Documents = entity.Documents?
+                    .Where(x => !x.IsDeleted)
+                    .OrderByDescending(x => x.UploadedAt)
+                    .Select(MapEnterpriseDocumentToDto)
+                    .ToList() ?? new List<EnterpriseDocumentResponseDto>()
+            };
+        }
 
-                CreatedTime = entity.CreatedTime
+        private static EnterpriseDocumentResponseDto MapEnterpriseDocumentToDto(EnterpriseDocument entity)
+        {
+            return new EnterpriseDocumentResponseDto
+            {
+                Id = entity.Id,
+                RecyclingEnterpriseId = entity.RecyclingEnterpriseId,
+                DocumentType = entity.DocumentType.ToString(),
+                OriginalFileName = entity.OriginalFileName,
+                StoredFileName = entity.StoredFileName,
+                FileUrl = entity.FileUrl,
+                ContentType = entity.ContentType,
+                FileSize = entity.FileSize,
+                UploadedAt = entity.UploadedAt,
+                IsDeleted = entity.IsDeleted
             };
         }
     }

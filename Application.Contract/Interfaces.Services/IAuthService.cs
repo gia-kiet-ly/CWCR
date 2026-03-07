@@ -9,8 +9,9 @@ namespace Application.Contract.Interfaces.Services
 {
     public interface IAuthService
     {
-        Task<AuthResponseDto> LoginAsync(LoginRequestDto request);
         Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto request);
-        Task<AuthResponseDto> RefreshAsync(string refreshToken);
+        Task<EmailVerificationResultDto> VerifyEmailAsync(Guid userId, string token);
+        Task<AuthResponseDto> LoginAsync(LoginRequestDto request);
+        Task<AuthResponseDto> RefreshAsync(RefreshRequestDto request);
     }
 }

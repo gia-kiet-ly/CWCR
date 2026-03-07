@@ -126,6 +126,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseCors("OpenCors");
 app.UseAuthentication();
 app.UseAuthorization();

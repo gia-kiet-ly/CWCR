@@ -2,8 +2,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Emit;
-using System.Text.Json;
 
 namespace Infrastructure.DbContext
 {
@@ -38,6 +36,7 @@ namespace Infrastructure.DbContext
         public DbSet<EnterpriseWasteCapability> EnterpriseWasteCapabilities { get; set; }
         public DbSet<District> Districts { get; set; }
         public DbSet<Ward> Wards { get; set; }
+        public DbSet<EnterpriseDocument> EnterpriseDocuments { get; set; }
 
         // Statistics & Complaints
         public DbSet<RecyclingStatistic> RecyclingStatistics { get; set; }
@@ -375,6 +374,9 @@ namespace Infrastructure.DbContext
                     .IsRequired()
                     .HasMaxLength(150);
 
+                entity.Property(e => e.RejectionReason)
+                    .HasMaxLength(1000);
+
                 entity.Property(e => e.ApprovalStatus)
                     .HasConversion<string>()
                     .IsRequired();
@@ -389,9 +391,62 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
+                // Admin reviewer
+                entity.HasOne(e => e.ReviewedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.ReviewedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Documents
+                entity.HasMany(e => e.Documents)
+                    .WithOne(d => d.RecyclingEnterprise)
+                    .HasForeignKey(d => d.RecyclingEnterpriseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
                 // 1 User = 1 Enterprise
                 entity.HasIndex(e => e.UserId)
                     .IsUnique();
+
+                // search/list pending approvals
+                entity.HasIndex(e => e.ApprovalStatus);
+
+                // tax code unique nếu mỗi doanh nghiệp chỉ có 1 tax code duy nhất
+                entity.HasIndex(e => e.TaxCode)
+                    .IsUnique();
+            });
+
+            // ======================== EnterpriseDocument Configuration ========================
+
+            builder.Entity<EnterpriseDocument>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.DocumentType)
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                entity.Property(e => e.OriginalFileName)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.StoredFileName)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.FileUrl)
+                    .IsRequired()
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.ContentType)
+                    .HasMaxLength(100);
+
+                entity.HasOne(e => e.RecyclingEnterprise)
+                    .WithMany(r => r.Documents)
+                    .HasForeignKey(e => e.RecyclingEnterpriseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.RecyclingEnterpriseId);
+                entity.HasIndex(e => new { e.RecyclingEnterpriseId, e.DocumentType });
             });
 
             // ======================== EnterpriseServiceArea Configuration ========================
