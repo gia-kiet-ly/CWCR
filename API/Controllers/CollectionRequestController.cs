@@ -33,9 +33,8 @@ namespace API.Controllers
             var enterpriseId = await ResolveEnterpriseIdFromTokenAsync();
             if (enterpriseId == null) return Forbid();
 
-            // default status = Offered nếu không truyền
-            if (string.IsNullOrWhiteSpace(filter.Status))
-                filter.Status = "Offered";
+            if (!filter.Status.HasValue)
+                filter.Status = Core.Enum.CollectionRequestStatus.Offered;
 
             var result = await _service.GetPagedForEnterpriseAsync(enterpriseId.Value, filter);
             return Ok(result);
