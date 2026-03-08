@@ -11,8 +11,5 @@ namespace Domain.Entities
         public RecyclingEnterprise Enterprise { get; set; } = null!;
 
         public bool IsActive { get; set; }
-
-        // Optional: list assignment của collector
-        public ICollection<CollectorAssignment> Assignments { get; set; } = new List<CollectorAssignment>();
     }
 }

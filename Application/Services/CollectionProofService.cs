@@ -6,11 +6,6 @@ using Core.Enum;
 using Core.Utils;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Services
 {
@@ -29,19 +24,15 @@ namespace Application.Services
             var assignmentRepo = _uow.GetRepository<CollectorAssignment>();
             var proofRepo = _uow.GetRepository<CollectionProof>();
 
-            // ownership check: assignment phải thuộc collector đang login
             var assignment = await assignmentRepo.NoTrackingEntities
-                .Include(a => a.Collector) // CollectorProfile
                 .FirstOrDefaultAsync(a => a.Id == dto.AssignmentId && !a.IsDeleted);
 
             if (assignment == null)
                 throw new Exception("Assignment not found.");
 
-            if (assignment.Collector.CollectorId != collectorUserId)
+            if (assignment.CollectorId != collectorUserId)
                 throw new Exception("You do not own this assignment.");
 
-            // Optional: chặn upload proof nếu assignment chưa Collected
-            // (tuỳ bạn, MVP nên chặn)
             if (assignment.Status != AssignmentStatus.Collected)
                 throw new Exception("Assignment must be Collected before uploading proof.");
 
@@ -67,12 +58,11 @@ namespace Application.Services
 
             var entity = await repo.NoTrackingEntities
                 .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Collector)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (entity == null) return null;
 
-            if (entity.Assignment.Collector.CollectorId != collectorUserId)
+            if (entity.Assignment.CollectorId != collectorUserId)
                 return null;
 
             return Map(entity);
@@ -85,15 +75,16 @@ namespace Application.Services
 
             var query = repo.NoTrackingEntities
                 .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Collector)
-                .Where(p => !p.IsDeleted && p.Assignment.Collector.CollectorId == collectorUserId);
+                .Where(p => !p.IsDeleted && p.Assignment.CollectorId == collectorUserId);
 
             if (filter.AssignmentId.HasValue)
                 query = query.Where(x => x.AssignmentId == filter.AssignmentId.Value);
 
             if (!string.IsNullOrWhiteSpace(filter.ReviewStatus) &&
                 Enum.TryParse<ProofReviewStatus>(filter.ReviewStatus, true, out var st))
+            {
                 query = query.Where(x => x.ReviewStatus == st);
+            }
 
             var total = await query.CountAsync();
             var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
@@ -120,7 +111,6 @@ namespace Application.Services
 
             if (entity == null) return null;
 
-            // enterprise ownership: proof -> assignment -> request -> enterprise
             if (entity.Assignment.Request.EnterpriseId != enterpriseId)
                 return null;
 
@@ -142,7 +132,9 @@ namespace Application.Services
 
             if (!string.IsNullOrWhiteSpace(filter.ReviewStatus) &&
                 Enum.TryParse<ProofReviewStatus>(filter.ReviewStatus, true, out var st))
+            {
                 query = query.Where(x => x.ReviewStatus == st);
+            }
 
             var total = await query.CountAsync();
             var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
@@ -175,11 +167,9 @@ namespace Application.Services
             if (!Enum.TryParse<ProofReviewStatus>(dto.Status, true, out var newStatus))
                 return false;
 
-            // chỉ cho review Approved/Rejected
             if (newStatus == ProofReviewStatus.Pending)
                 return false;
 
-            // Optional: chỉ review khi đang Pending
             if (entity.ReviewStatus != ProofReviewStatus.Pending)
                 return false;
 
@@ -191,10 +181,6 @@ namespace Application.Services
 
             repo.Update(entity);
             await _uow.SaveAsync();
-
-            // Optional nâng cấp sau:
-            // nếu Approved -> update CollectionRequest.Status = Collected (hoặc Completed)
-            // và cộng CitizenPoint
 
             return true;
         }

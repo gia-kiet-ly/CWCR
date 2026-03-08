@@ -6,11 +6,6 @@ using Core.Enum;
 using Core.Utils;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Services
 {
@@ -28,10 +23,10 @@ namespace Application.Services
         {
             var requestRepo = _uow.GetRepository<CollectionRequest>();
             var assignmentRepo = _uow.GetRepository<CollectorAssignment>();
-            var collectorRepo = _uow.GetRepository<CollectorProfile>();
+            var collectorProfileRepo = _uow.GetRepository<CollectorProfile>();
 
             // 1) Request phải thuộc enterprise
-            var request = await requestRepo.NoTrackingEntities
+            var request = await requestRepo.Entities
                 .FirstOrDefaultAsync(r =>
                     r.Id == dto.RequestId &&
                     r.EnterpriseId == enterpriseId &&
@@ -40,42 +35,45 @@ namespace Application.Services
             if (request == null)
                 throw new Exception("Request not found or not belong to enterprise.");
 
-            // 2) CollectorProfile phải thuộc enterprise
-            var collectorProfile = await collectorRepo.NoTrackingEntities
+            // 2) Chỉ assign khi request đã Accepted
+            if (request.Status != CollectionRequestStatus.Accepted)
+                throw new Exception("Only accepted request can be assigned.");
+
+            // 3) Không cho assign trùng
+            var existedAssignment = await assignmentRepo.NoTrackingEntities
+                .AnyAsync(a => a.RequestId == dto.RequestId && !a.IsDeleted);
+
+            if (existedAssignment)
+                throw new Exception("Request already has an assignment.");
+
+            // 4) Collector phải là user thuộc enterprise này thông qua CollectorProfile
+            var collectorProfile = await collectorProfileRepo.NoTrackingEntities
                 .FirstOrDefaultAsync(c =>
-                    c.Id == dto.CollectorProfileId &&
+                    c.CollectorId == dto.CollectorId &&
                     c.EnterpriseId == enterpriseId &&
+                    c.IsActive &&
                     !c.IsDeleted);
 
             if (collectorProfile == null)
-                throw new Exception("CollectorProfile not found or not belong to enterprise.");
+                throw new Exception("Collector not found or not belong to enterprise.");
 
             var entity = new CollectorAssignment
             {
                 RequestId = dto.RequestId,
-                CollectorId = dto.CollectorProfileId,  // ✅ dùng CollectorProfileId
+                CollectorId = dto.CollectorId, // ApplicationUser.Id
                 Status = AssignmentStatus.Assigned
             };
 
             await assignmentRepo.InsertAsync(entity);
+
+            request.Status = CollectionRequestStatus.Assigned;
+            request.LastUpdatedTime = DateTimeOffset.UtcNow;
+            requestRepo.Update(request);
+
             await _uow.SaveAsync();
 
-            // ✅ NEW (không đụng logic cũ): update CollectionRequest status -> Assigned
-            // chỉ update khi request đã Accepted
-            var requestTracked = await requestRepo.GetByIdAsync(dto.RequestId);
-            if (requestTracked != null && !requestTracked.IsDeleted)
-            {
-                if (requestTracked.Status == CollectionRequestStatus.Accepted)
-                {
-                    requestTracked.Status = CollectionRequestStatus.Assigned;
-                    requestTracked.LastUpdatedTime = DateTimeOffset.UtcNow;
-                    requestRepo.Update(requestTracked);
-                    await _uow.SaveAsync();
-                }
-            }
-
             return await GetByIdEnterpriseAsync(enterpriseId, entity.Id)
-                   ?? throw new Exception("Create assignment failed");
+                   ?? throw new Exception("Create assignment failed.");
         }
 
         // ================= ENTERPRISE: GET BY ID =================
@@ -109,7 +107,9 @@ namespace Application.Services
 
             if (!string.IsNullOrWhiteSpace(filter.Status) &&
                 Enum.TryParse<AssignmentStatus>(filter.Status, true, out var st))
+            {
                 query = query.Where(x => x.Status == st);
+            }
 
             var total = await query.CountAsync();
             var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
@@ -131,10 +131,9 @@ namespace Application.Services
             var repo = _uow.GetRepository<CollectorAssignment>();
 
             var entity = await repo.NoTrackingEntities
-                .Include(a => a.Collector)
                 .FirstOrDefaultAsync(a => a.Id == id &&
                                           !a.IsDeleted &&
-                                          a.Collector.CollectorId == collectorUserId);
+                                          a.CollectorId == collectorUserId);
 
             return entity == null ? null : Map(entity);
         }
@@ -145,12 +144,16 @@ namespace Application.Services
             var repo = _uow.GetRepository<CollectorAssignment>();
 
             var query = repo.NoTrackingEntities
-                .Include(a => a.Collector)
-                .Where(a => !a.IsDeleted && a.Collector.CollectorId == collectorUserId);
+                .Where(a => !a.IsDeleted && a.CollectorId == collectorUserId);
 
             if (!string.IsNullOrWhiteSpace(filter.Status) &&
                 Enum.TryParse<AssignmentStatus>(filter.Status, true, out var st))
+            {
                 query = query.Where(x => x.Status == st);
+            }
+
+            if (filter.RequestId.HasValue)
+                query = query.Where(x => x.RequestId == filter.RequestId.Value);
 
             var total = await query.CountAsync();
             var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
@@ -171,14 +174,11 @@ namespace Application.Services
             var repo = _uow.GetRepository<CollectorAssignment>();
 
             var entity = await repo.Entities
-                .Include(a => a.Collector) // CollectorProfile
-                .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+                .FirstOrDefaultAsync(a => a.Id == id &&
+                                          !a.IsDeleted &&
+                                          a.CollectorId == collectorUserId);
 
             if (entity == null) return false;
-
-            // Check ownership qua CollectorProfile
-            if (entity.Collector.CollectorId != collectorUserId)
-                return false;
 
             if (!Enum.TryParse<AssignmentStatus>(dto.Status, true, out var newStatus))
                 return false;
@@ -211,7 +211,7 @@ namespace Application.Services
             {
                 Id = x.Id,
                 RequestId = x.RequestId,
-                CollectorProfileId = x.CollectorId,  // rename đúng nghĩa
+                CollectorId = x.CollectorId,
                 Status = x.Status.ToString(),
                 CollectedAt = x.CollectedAt,
                 CollectedNote = x.CollectedNote,

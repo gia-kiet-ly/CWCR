@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260301084043_RefactorUser")]
-    partial class RefactorUser
+    [Migration("20260308054105_newdb")]
+    partial class newdb
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -146,14 +146,14 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("CitizenId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -161,29 +161,77 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<int>("Point")
+                    b.Property<int>("TotalPoints")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitizenId")
+                        .IsUnique();
+
+                    b.ToTable("CitizenPoints");
+                });
+
+            modelBuilder.Entity("Domain.Entities.CitizenPointHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CitizenId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CitizenPointId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Points")
                         .HasColumnType("int");
 
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("ReportId")
+                    b.Property<Guid?>("WasteReportId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CitizenId");
 
-                    b.HasIndex("ReportId");
+                    b.HasIndex("CitizenPointId");
 
-                    b.ToTable("CitizenPoints");
+                    b.HasIndex("CreatedTime");
+
+                    b.HasIndex("WasteReportId");
+
+                    b.ToTable("CitizenPointHistories");
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectionProof", b =>
@@ -195,14 +243,14 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("AssignmentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -214,8 +262,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -223,9 +271,30 @@ namespace Infrastructure.Migrations
                     b.Property<string>("Note")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignmentId");
+
+                    b.HasIndex("PublicId");
+
+                    b.HasIndex("ReviewStatus");
 
                     b.ToTable("CollectionProofs");
                 });
@@ -236,14 +305,14 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -254,8 +323,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -263,17 +332,19 @@ namespace Infrastructure.Migrations
                     b.Property<int?>("PriorityScore")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("ReportId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
+                    b.Property<Guid>("WasteReportWasteId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnterpriseId");
+                    b.HasIndex("WasteReportWasteId")
+                        .IsUnique();
 
-                    b.HasIndex("ReportId");
+                    b.HasIndex("EnterpriseId", "Status");
 
                     b.ToTable("CollectionRequests");
                 });
@@ -284,17 +355,24 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("CollectedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CollectedNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<Guid>("CollectorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -302,8 +380,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -311,14 +389,16 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("RequestId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CollectorId");
+                    b.HasIndex("RequestId")
+                        .IsUnique();
 
-                    b.HasIndex("RequestId");
+                    b.HasIndex("CollectorId", "Status");
 
                     b.ToTable("CollectorAssignments");
                 });
@@ -332,14 +412,14 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("CollectorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -353,15 +433,16 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CollectorId");
+                    b.HasIndex("CollectorId")
+                        .IsUnique();
 
                     b.HasIndex("EnterpriseId");
 
@@ -374,21 +455,25 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("CitizenId")
+                    b.Property<Guid?>("CollectionRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ComplainantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -396,8 +481,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -413,7 +498,9 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CitizenId");
+                    b.HasIndex("CollectionRequestId");
+
+                    b.HasIndex("ComplainantId");
 
                     b.HasIndex("ReportId");
 
@@ -426,20 +513,69 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("AdminId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid>("ComplaintId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("HandlerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ResolutionNote")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("ResolvedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComplaintId");
+
+                    b.HasIndex("HandlerId");
+
+                    b.ToTable("DisputeResolutions");
+                });
+
+            modelBuilder.Entity("Domain.Entities.District", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -447,26 +583,96 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("ResolutionNote")
+                    b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
-                    b.Property<DateTimeOffset>("ResolvedAt")
-                        .HasColumnType("datetimeoffset");
+                    b.Property<string>("ProvinceCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AdminId");
+                    b.HasIndex("Code")
+                        .IsUnique();
 
-                    b.HasIndex("ComplaintId");
+                    b.ToTable("Districts");
+                });
 
-                    b.ToTable("DisputeResolutions");
+            modelBuilder.Entity("Domain.Entities.EnterpriseDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("RecyclingEnterpriseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecyclingEnterpriseId");
+
+                    b.HasIndex("RecyclingEnterpriseId", "DocumentType");
+
+                    b.ToTable("EnterpriseDocuments");
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseServiceArea", b =>
@@ -475,17 +681,20 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("DistrictId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("EnterpriseId")
                         .HasColumnType("uniqueidentifier");
@@ -493,19 +702,24 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("RegionCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("WardId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnterpriseId");
+                    b.HasIndex("DistrictId");
+
+                    b.HasIndex("WardId");
+
+                    b.HasIndex("EnterpriseId", "DistrictId", "WardId")
+                        .IsUnique()
+                        .HasFilter("[WardId] IS NOT NULL");
 
                     b.ToTable("EnterpriseServiceAreas");
                 });
@@ -516,8 +730,8 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
@@ -526,8 +740,8 @@ namespace Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -538,8 +752,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -549,11 +763,106 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnterpriseId");
-
                     b.HasIndex("WasteTypeId");
 
+                    b.HasIndex("EnterpriseId", "WasteTypeId")
+                        .IsUnique();
+
                     b.ToTable("EnterpriseWasteCapabilities");
+                });
+
+            modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("EnvironmentLicenseFileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LegalRepresentative")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("OperationalStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("RepresentativePosition")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TaxCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalStatus");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("TaxCode")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("RecyclingEnterprises");
                 });
 
             modelBuilder.Entity("Domain.Entities.RecyclingStatistic", b =>
@@ -562,14 +871,14 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -580,8 +889,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -644,14 +953,14 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -666,8 +975,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -684,6 +993,54 @@ namespace Infrastructure.Migrations
                     b.ToTable("SystemAuditLogs");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Ward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("DistrictId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LastUpdatedTime")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DistrictId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("Wards");
+                });
+
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>
                 {
                     b.Property<Guid>("Id")
@@ -693,14 +1050,14 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("CitizenId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -711,8 +1068,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -725,12 +1082,17 @@ namespace Infrastructure.Migrations
                         .HasPrecision(10, 7)
                         .HasColumnType("decimal(10,7)");
 
+                    b.Property<string>("RegionCode")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CitizenId");
+
+                    b.HasIndex("RegionCode");
 
                     b.ToTable("WasteReports");
                 });
@@ -741,23 +1103,27 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<decimal?>("EstimatedWeightKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -771,16 +1137,11 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("WasteTypeId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("WasteTypeId1")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
 
                     b.HasIndex("WasteReportId");
 
                     b.HasIndex("WasteTypeId");
-
-                    b.HasIndex("WasteTypeId1");
 
                     b.ToTable("WasteReportWastes");
                 });
@@ -795,14 +1156,14 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -819,8 +1180,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -950,14 +1311,14 @@ namespace Infrastructure.Migrations
                     b.Property<int>("BasePoint")
                         .HasColumnType("int");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -974,8 +1335,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -988,62 +1349,12 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnterpriseId");
-
                     b.HasIndex("WasteTypeId");
 
+                    b.HasIndex("EnterpriseId", "WasteTypeId")
+                        .IsUnique();
+
                     b.ToTable("PointRules");
-                });
-
-            modelBuilder.Entity("RecyclingEnterprise", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset>("CreatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset?>("DeletedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset>("LastUpdatedTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<Guid>("RepresentativeId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RepresentativeId");
-
-                    b.ToTable("RecyclingEnterprises");
                 });
 
             modelBuilder.Entity("WasteImage", b =>
@@ -1052,14 +1363,14 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedTime")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("DeletedTime")
                         .HasColumnType("datetimeoffset");
@@ -1075,8 +1386,8 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LastUpdatedBy")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("LastUpdatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("LastUpdatedTime")
                         .HasColumnType("datetimeoffset");
@@ -1103,21 +1414,35 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.WasteReport", "Report")
+                    b.Navigation("Citizen");
+                });
+
+            modelBuilder.Entity("Domain.Entities.CitizenPointHistory", b =>
+                {
+                    b.HasOne("Domain.Entities.ApplicationUser", "Citizen")
                         .WithMany()
-                        .HasForeignKey("ReportId")
+                        .HasForeignKey("CitizenId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.CitizenPoint", null)
+                        .WithMany("Histories")
+                        .HasForeignKey("CitizenPointId");
+
+                    b.HasOne("Domain.Entities.WasteReport", "WasteReport")
+                        .WithMany()
+                        .HasForeignKey("WasteReportId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Citizen");
 
-                    b.Navigation("Report");
+                    b.Navigation("WasteReport");
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectionProof", b =>
                 {
                     b.HasOne("Domain.Entities.CollectorAssignment", "Assignment")
-                        .WithMany()
+                        .WithMany("Proofs")
                         .HasForeignKey("AssignmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1127,33 +1452,33 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.CollectionRequest", b =>
                 {
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
-                        .WithMany()
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                        .WithMany("CollectionRequests")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.WasteReport", "Report")
+                    b.HasOne("Domain.Entities.WasteReportWaste", "WasteReportWaste")
                         .WithMany()
-                        .HasForeignKey("ReportId")
+                        .HasForeignKey("WasteReportWasteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Enterprise");
 
-                    b.Navigation("Report");
+                    b.Navigation("WasteReportWaste");
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectorAssignment", b =>
                 {
-                    b.HasOne("Domain.Entities.CollectorProfile", "Collector")
-                        .WithMany()
+                    b.HasOne("Domain.Entities.ApplicationUser", "Collector")
+                        .WithMany("Assignments")
                         .HasForeignKey("CollectorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.CollectionRequest", "Request")
-                        .WithMany()
+                        .WithMany("Assignments")
                         .HasForeignKey("RequestId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1171,8 +1496,8 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
-                        .WithMany()
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                        .WithMany("Collectors")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1184,57 +1509,90 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Complaint", b =>
                 {
-                    b.HasOne("Domain.Entities.ApplicationUser", "Citizen")
+                    b.HasOne("Domain.Entities.CollectionRequest", "CollectionRequest")
                         .WithMany()
-                        .HasForeignKey("CitizenId")
+                        .HasForeignKey("CollectionRequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Domain.Entities.ApplicationUser", "Complainant")
+                        .WithMany()
+                        .HasForeignKey("ComplainantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.WasteReport", "Report")
                         .WithMany()
                         .HasForeignKey("ReportId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Citizen");
+                    b.Navigation("CollectionRequest");
+
+                    b.Navigation("Complainant");
 
                     b.Navigation("Report");
                 });
 
             modelBuilder.Entity("Domain.Entities.DisputeResolution", b =>
                 {
-                    b.HasOne("Domain.Entities.ApplicationUser", "Admin")
-                        .WithMany()
-                        .HasForeignKey("AdminId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("Domain.Entities.Complaint", "Complaint")
                         .WithMany("Resolutions")
                         .HasForeignKey("ComplaintId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Admin");
+                    b.HasOne("Domain.Entities.ApplicationUser", "Handler")
+                        .WithMany()
+                        .HasForeignKey("HandlerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Complaint");
+
+                    b.Navigation("Handler");
+                });
+
+            modelBuilder.Entity("Domain.Entities.EnterpriseDocument", b =>
+                {
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "RecyclingEnterprise")
+                        .WithMany("Documents")
+                        .HasForeignKey("RecyclingEnterpriseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RecyclingEnterprise");
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseServiceArea", b =>
                 {
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
+                    b.HasOne("Domain.Entities.District", "District")
                         .WithMany()
+                        .HasForeignKey("DistrictId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                        .WithMany("ServiceAreas")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.Ward", "Ward")
+                        .WithMany()
+                        .HasForeignKey("WardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("District");
+
                     b.Navigation("Enterprise");
+
+                    b.Navigation("Ward");
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseWasteCapability", b =>
                 {
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
-                        .WithMany()
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                        .WithMany("WasteCapabilities")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1250,10 +1608,28 @@ namespace Infrastructure.Migrations
                     b.Navigation("WasteType");
                 });
 
+            modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
+                {
+                    b.HasOne("Domain.Entities.ApplicationUser", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ReviewedByUser");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Domain.Entities.RecyclingStatistic", b =>
                 {
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
-                        .WithMany()
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                        .WithMany("RecyclingStatistics")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1290,6 +1666,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Domain.Entities.Ward", b =>
+                {
+                    b.HasOne("Domain.Entities.District", "District")
+                        .WithMany("Wards")
+                        .HasForeignKey("DistrictId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("District");
+                });
+
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>
                 {
                     b.HasOne("Domain.Entities.ApplicationUser", "Citizen")
@@ -1310,14 +1697,10 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.WasteType", "WasteType")
-                        .WithMany()
+                        .WithMany("WasteReportWastes")
                         .HasForeignKey("WasteTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Domain.Entities.WasteType", null)
-                        .WithMany("WasteReportWastes")
-                        .HasForeignKey("WasteTypeId1");
 
                     b.Navigation("WasteReport");
 
@@ -1377,8 +1760,8 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("PointRule", b =>
                 {
-                    b.HasOne("RecyclingEnterprise", "Enterprise")
-                        .WithMany()
+                    b.HasOne("Domain.Entities.RecyclingEnterprise", "Enterprise")
+                        .WithMany("PointRules")
                         .HasForeignKey("EnterpriseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1394,17 +1777,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("WasteType");
                 });
 
-            modelBuilder.Entity("RecyclingEnterprise", b =>
-                {
-                    b.HasOne("Domain.Entities.ApplicationUser", "Representative")
-                        .WithMany()
-                        .HasForeignKey("RepresentativeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Representative");
-                });
-
             modelBuilder.Entity("WasteImage", b =>
                 {
                     b.HasOne("Domain.Entities.WasteReportWaste", "WasteReportWaste")
@@ -1416,9 +1788,51 @@ namespace Infrastructure.Migrations
                     b.Navigation("WasteReportWaste");
                 });
 
+            modelBuilder.Entity("Domain.Entities.ApplicationUser", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
+            modelBuilder.Entity("Domain.Entities.CitizenPoint", b =>
+                {
+                    b.Navigation("Histories");
+                });
+
+            modelBuilder.Entity("Domain.Entities.CollectionRequest", b =>
+                {
+                    b.Navigation("Assignments");
+                });
+
+            modelBuilder.Entity("Domain.Entities.CollectorAssignment", b =>
+                {
+                    b.Navigation("Proofs");
+                });
+
             modelBuilder.Entity("Domain.Entities.Complaint", b =>
                 {
                     b.Navigation("Resolutions");
+                });
+
+            modelBuilder.Entity("Domain.Entities.District", b =>
+                {
+                    b.Navigation("Wards");
+                });
+
+            modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
+                {
+                    b.Navigation("CollectionRequests");
+
+                    b.Navigation("Collectors");
+
+                    b.Navigation("Documents");
+
+                    b.Navigation("PointRules");
+
+                    b.Navigation("RecyclingStatistics");
+
+                    b.Navigation("ServiceAreas");
+
+                    b.Navigation("WasteCapabilities");
                 });
 
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>

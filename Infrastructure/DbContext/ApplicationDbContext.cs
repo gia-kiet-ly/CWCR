@@ -146,7 +146,7 @@ namespace Infrastructure.DbContext
                     .HasPrecision(10, 2);
 
                 entity.HasOne(e => e.WasteType)
-                    .WithMany()
+                    .WithMany(wt => wt.WasteReportWastes)
                     .HasForeignKey(e => e.WasteTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
 
@@ -264,13 +264,16 @@ namespace Infrastructure.DbContext
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Collector)
-                    .WithMany(c => c.Assignments)
+                    .WithMany(u => u.Assignments)
                     .HasForeignKey(e => e.CollectorId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.Property(e => e.Status)
                     .HasConversion<string>()
                     .IsRequired();
+
+                entity.Property(e => e.CollectedNote)
+                    .HasMaxLength(1000);
 
                 entity.HasMany(e => e.Proofs)
                     .WithOne(p => p.Assignment)
@@ -279,10 +282,8 @@ namespace Infrastructure.DbContext
 
                 entity.HasIndex(e => new { e.CollectorId, e.Status });
 
-                // MVP: không re-assign
+                // 1 request chỉ có 1 assignment
                 entity.HasIndex(e => e.RequestId).IsUnique();
-
-                entity.Property(e => e.CollectedNote).HasMaxLength(1000);
             });
 
             // ======================== CollectorProfile Configuration ========================
@@ -301,7 +302,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // Optional nhưng nên có: unique để 1 user chỉ có 1 profile collector
                 entity.HasIndex(e => e.CollectorId).IsUnique();
             });
 
@@ -335,7 +335,7 @@ namespace Infrastructure.DbContext
                 entity.HasKey(e => e.Id);
 
                 entity.HasOne(e => e.Enterprise)
-                    .WithMany()
+                    .WithMany(e => e.PointRules)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
@@ -504,7 +504,7 @@ namespace Infrastructure.DbContext
                 entity.HasKey(e => e.Id);
 
                 entity.HasOne(e => e.Enterprise)
-                    .WithMany()
+                    .WithMany(e => e.RecyclingStatistics)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 

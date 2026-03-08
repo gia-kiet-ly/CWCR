@@ -276,6 +276,7 @@ namespace Application.Services
 
             string? enterpriseApprovalStatus = null;
             bool mustCompleteEnterpriseProfile = false;
+            bool canLogin = true;
 
             if (role == SystemRoles.RecyclingEnterprise)
             {
@@ -285,6 +286,11 @@ namespace Application.Services
 
                 enterpriseApprovalStatus = enterprise?.ApprovalStatus.ToString();
                 mustCompleteEnterpriseProfile = enterprise == null;
+
+                // Enterprise vẫn login được để bổ sung hồ sơ,
+                // nhưng chỉ "dùng hệ thống bình thường" khi đã approved
+                canLogin = enterprise != null &&
+                           enterprise.ApprovalStatus == Core.Enum.EnterpriseApprovalStatus.Approved;
             }
 
             return new AuthResponseDto
@@ -302,7 +308,7 @@ namespace Application.Services
                 IsActive = user.IsActive,
 
                 EnterpriseApprovalStatus = enterpriseApprovalStatus,
-                CanLogin = true,
+                CanLogin = canLogin,
                 MustCompleteEnterpriseProfile = mustCompleteEnterpriseProfile
             };
         }
@@ -360,6 +366,7 @@ namespace Application.Services
 
             string? enterpriseApprovalStatus = null;
             bool mustCompleteEnterpriseProfile = false;
+            bool canLogin = true;
 
             if (role == SystemRoles.RecyclingEnterprise)
             {
@@ -369,6 +376,8 @@ namespace Application.Services
 
                 enterpriseApprovalStatus = enterprise?.ApprovalStatus.ToString();
                 mustCompleteEnterpriseProfile = enterprise == null;
+                canLogin = enterprise != null &&
+                           enterprise.ApprovalStatus == Core.Enum.EnterpriseApprovalStatus.Approved;
             }
 
             return new AuthResponseDto
@@ -386,7 +395,7 @@ namespace Application.Services
                 IsActive = user.IsActive,
 
                 EnterpriseApprovalStatus = enterpriseApprovalStatus,
-                CanLogin = true,
+                CanLogin = canLogin,
                 MustCompleteEnterpriseProfile = mustCompleteEnterpriseProfile
             };
         }
@@ -410,31 +419,9 @@ namespace Application.Services
                     "Your account is inactive.");
             }
 
-            if (role == SystemRoles.Citizen)
+            // Citizen và Enterprise đều cho login sau khi verify email
+            if (role == SystemRoles.Citizen || role == SystemRoles.RecyclingEnterprise)
             {
-                return;
-            }
-
-            if (role == SystemRoles.RecyclingEnterprise)
-            {
-                var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
-                var enterprise = await enterpriseRepo.FirstOrDefaultAsync(x =>
-                    x.UserId == user.Id && !x.IsDeleted);
-
-                if (enterprise == null)
-                {
-                    throw new BaseException.UnauthorizedException(
-                        "enterprise_profile_not_completed",
-                        "Please complete your enterprise profile before logging in.");
-                }
-
-                if (enterprise.ApprovalStatus != Core.Enum.EnterpriseApprovalStatus.Approved)
-                {
-                    throw new BaseException.UnauthorizedException(
-                        "enterprise_not_approved",
-                        "Your enterprise account is waiting for admin approval.");
-                }
-
                 return;
             }
         }

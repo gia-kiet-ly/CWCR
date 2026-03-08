@@ -12,7 +12,7 @@ namespace Application.Contract.DTOs
 
         public Guid RequestId { get; set; }
 
-        public Guid CollectorProfileId { get; set; }
+        public Guid CollectorId { get; set; }   // ApplicationUser.Id
 
         public string Status { get; set; } = default!;
 
@@ -28,8 +28,7 @@ namespace Application.Contract.DTOs
     {
         public Guid RequestId { get; set; }
 
-        // ⚠️ đổi rõ tên cho khỏi nhầm
-        public Guid CollectorProfileId { get; set; }
+        public Guid CollectorId { get; set; }   // ApplicationUser.Id
     }
 
     // Collector update status
