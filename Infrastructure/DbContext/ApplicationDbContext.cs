@@ -292,17 +292,26 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.IsProfileCompleted)
+                    .HasDefaultValue(false);
+
                 entity.HasOne(e => e.Collector)
-                    .WithMany()
-                    .HasForeignKey(e => e.CollectorId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .WithOne(u => u.CollectorProfile)
+                    .HasForeignKey<CollectorProfile>(e => e.CollectorId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(e => e.Enterprise)
                     .WithMany(e => e.Collectors)
                     .HasForeignKey(e => e.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasIndex(e => e.CollectorId).IsUnique();
+                entity.HasIndex(e => e.CollectorId)
+                    .IsUnique();
+
+                entity.HasIndex(e => e.EnterpriseId);
             });
 
             // ======================== CollectionProof Configuration ========================
