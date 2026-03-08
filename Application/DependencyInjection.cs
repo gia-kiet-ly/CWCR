@@ -38,6 +38,7 @@ namespace Application
             services.AddScoped<ICitizenPointService, CitizenPointService>();
             services.AddScoped<IDistrictService, DistrictService>();
             services.AddScoped<IWardService, WardService>();
+            services.AddScoped<ICollectorService, CollectorService>();
 
             return services;
         }

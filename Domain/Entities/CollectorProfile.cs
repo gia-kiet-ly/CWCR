@@ -10,6 +10,8 @@ namespace Domain.Entities
         public Guid EnterpriseId { get; set; }
         public RecyclingEnterprise Enterprise { get; set; } = null!;
 
-        public bool IsActive { get; set; }
+        public bool IsActive { get; set; } = true;
+
+        public bool IsProfileCompleted { get; set; } = false;
     }
 }

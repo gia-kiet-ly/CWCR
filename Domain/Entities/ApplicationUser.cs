@@ -17,5 +17,7 @@ namespace Domain.Entities
         public DateTime? UpdatedAt { get; set; }
 
         public ICollection<CollectorAssignment> Assignments { get; set; } = new List<CollectorAssignment>();
+
+        public CollectorProfile? CollectorProfile { get; set; }
     }
 }

@@ -79,7 +79,7 @@ namespace API.Controllers
         // GET /api/collector-proofs/enterprise/{id}
         // =====================================================
         [HttpGet("enterprise/{id:guid}")]
-        [Authorize(Roles = "RecyclingEnterprise")]
+        [Authorize(Roles = "Enterprise")]
         public async Task<IActionResult> GetByIdEnterprise(Guid id)
         {
             var enterpriseId = await ResolveEnterpriseIdFromTokenAsync();
@@ -94,7 +94,7 @@ namespace API.Controllers
         // GET /api/collector-proofs/enterprise
         // =====================================================
         [HttpGet("enterprise")]
-        [Authorize(Roles = "RecyclingEnterprise")]
+        [Authorize(Roles = "Enterprise")]
         public async Task<IActionResult> GetPagedEnterprise([FromQuery] CollectionProofFilterDto filter)
         {
             var enterpriseId = await ResolveEnterpriseIdFromTokenAsync();
@@ -109,7 +109,7 @@ namespace API.Controllers
         // PUT /api/collector-proofs/enterprise/{id}/review
         // =====================================================
         [HttpPut("enterprise/{id:guid}/review")]
-        [Authorize(Roles = "RecyclingEnterprise")]
+        [Authorize(Roles = "Enterprise")]
         public async Task<IActionResult> Review(Guid id, [FromBody] ReviewCollectionProofDto dto)
         {
             var enterpriseId = await ResolveEnterpriseIdFromTokenAsync();
