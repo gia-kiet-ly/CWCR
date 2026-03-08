@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +31,12 @@ builder.Services.AddHttpClient<IRegionCodeResolver, RegionCodeResolver>(client =
     // Nominatim requires a valid User-Agent
     client.DefaultRequestHeaders.UserAgent.ParseAdd("EcoCollect/1.0 (contact: ntvq88@gmail.com)");
 });
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 // JWT
 builder.Services.AddAuthentication(options =>

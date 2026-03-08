@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Core.Enum;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,18 +11,33 @@ namespace Application.Contract.DTOs
     public class CollectorAssignmentDto
     {
         public Guid Id { get; set; }
-
         public Guid RequestId { get; set; }
+        public Guid CollectorId { get; set; }
 
-        public Guid CollectorId { get; set; }   // ApplicationUser.Id
-
-        public string Status { get; set; } = default!;
-
+        public AssignmentStatus Status { get; set; }
         public string? CollectedNote { get; set; }
-
         public DateTimeOffset? CollectedAt { get; set; }
 
         public DateTimeOffset CreatedTime { get; set; }
+        public DateTimeOffset? LastUpdatedTime { get; set; }
+
+        // Request info
+        public Guid EnterpriseId { get; set; }
+        public CollectionRequestStatus RequestStatus { get; set; }
+        public int? PriorityScore { get; set; }
+
+        // Waste info
+        public Guid WasteReportWasteId { get; set; }
+        public Guid WasteTypeId { get; set; }
+        public string? WasteTypeName { get; set; }
+        public string? Note { get; set; }
+        public List<string> ImageUrls { get; set; } = new();
+
+        // Location
+        public Guid WasteReportId { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+        public string? RegionCode { get; set; }
     }
 
     // Enterprise assign
@@ -34,15 +51,17 @@ namespace Application.Contract.DTOs
     // Collector update status
     public class UpdateAssignmentStatusDto
     {
-        public string Status { get; set; } = default!; // Assigned | OnTheWay | Collected
-        public string? CollectedNote { get; set; }     // optional
+        [Required]
+        public AssignmentStatus Status { get; set; }
+
+        public string? CollectedNote { get; set; }
     }
 
     public class AssignmentFilterDto
     {
-        public string? Status { get; set; }       // filter theo status
-        public Guid? CollectorId { get; set; }    // enterprise lọc theo collector
-        public Guid? RequestId { get; set; }      // optional
+        public AssignmentStatus? Status { get; set; }
+        public Guid? CollectorId { get; set; }
+        public Guid? RequestId { get; set; }
 
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;

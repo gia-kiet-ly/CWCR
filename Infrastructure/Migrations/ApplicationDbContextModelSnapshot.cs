@@ -172,7 +172,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CitizenId")
                         .IsUnique();
 
-                    b.ToTable("CitizenPoints");
+                    b.ToTable("CitizenPoints", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CitizenPointHistory", b =>
@@ -228,7 +228,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("WasteReportId");
 
-                    b.ToTable("CitizenPointHistories");
+                    b.ToTable("CitizenPointHistories", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectionProof", b =>
@@ -293,7 +293,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ReviewStatus");
 
-                    b.ToTable("CollectionProofs");
+                    b.ToTable("CollectionProofs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectionRequest", b =>
@@ -343,7 +343,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("EnterpriseId", "Status");
 
-                    b.ToTable("CollectionRequests");
+                    b.ToTable("CollectionRequests", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectorAssignment", b =>
@@ -397,7 +397,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("CollectorId", "Status");
 
-                    b.ToTable("CollectorAssignments");
+                    b.ToTable("CollectorAssignments", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CollectorProfile", b =>
@@ -450,7 +450,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("EnterpriseId");
 
-                    b.ToTable("CollectorProfiles");
+                    b.ToTable("CollectorProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Complaint", b =>
@@ -508,7 +508,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ReportId");
 
-                    b.ToTable("Complaints");
+                    b.ToTable("Complaints", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.DisputeResolution", b =>
@@ -558,7 +558,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("HandlerId");
 
-                    b.ToTable("DisputeResolutions");
+                    b.ToTable("DisputeResolutions", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.District", b =>
@@ -608,7 +608,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Districts");
+                    b.ToTable("Districts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseDocument", b =>
@@ -676,7 +676,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("RecyclingEnterpriseId", "DocumentType");
 
-                    b.ToTable("EnterpriseDocuments");
+                    b.ToTable("EnterpriseDocuments", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseServiceArea", b =>
@@ -725,7 +725,7 @@ namespace Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("[WardId] IS NOT NULL");
 
-                    b.ToTable("EnterpriseServiceAreas");
+                    b.ToTable("EnterpriseServiceAreas", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.EnterpriseWasteCapability", b =>
@@ -772,7 +772,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("EnterpriseId", "WasteTypeId")
                         .IsUnique();
 
-                    b.ToTable("EnterpriseWasteCapabilities");
+                    b.ToTable("EnterpriseWasteCapabilities", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.RecyclingEnterprise", b =>
@@ -866,7 +866,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("RecyclingEnterprises");
+                    b.ToTable("RecyclingEnterprises", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.RecyclingStatistic", b =>
@@ -918,7 +918,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("WasteTypeId");
 
-                    b.ToTable("RecyclingStatistics");
+                    b.ToTable("RecyclingStatistics", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
@@ -944,7 +944,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.SystemAuditLog", b =>
@@ -994,7 +994,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("SystemAuditLogs");
+                    b.ToTable("SystemAuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Ward", b =>
@@ -1042,7 +1042,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("DistrictId", "Code")
                         .IsUnique();
 
-                    b.ToTable("Wards");
+                    b.ToTable("Wards", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.WasteReport", b =>
@@ -1098,7 +1098,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("RegionCode");
 
-                    b.ToTable("WasteReports");
+                    b.ToTable("WasteReports", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.WasteReportWaste", b =>
@@ -1147,7 +1147,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("WasteTypeId");
 
-                    b.ToTable("WasteReportWastes");
+                    b.ToTable("WasteReportWastes", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.WasteType", b =>
@@ -1200,7 +1200,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("WasteTypes");
+                    b.ToTable("WasteTypes", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -1358,7 +1358,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("EnterpriseId", "WasteTypeId")
                         .IsUnique();
 
-                    b.ToTable("PointRules");
+                    b.ToTable("PointRules", (string)null);
                 });
 
             modelBuilder.Entity("WasteImage", b =>
@@ -1407,7 +1407,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("WasteReportWasteId");
 
-                    b.ToTable("WasteImages");
+                    b.ToTable("WasteImages", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CitizenPoint", b =>

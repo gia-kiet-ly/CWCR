@@ -83,6 +83,14 @@ namespace Application.Services
 
             var entity = await repo.NoTrackingEntities
                 .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteType)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.Images)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteReport)
                 .FirstOrDefaultAsync(a => a.Id == id &&
                                           !a.IsDeleted &&
                                           a.Request.EnterpriseId == enterpriseId);
@@ -97,6 +105,14 @@ namespace Application.Services
 
             var query = repo.NoTrackingEntities
                 .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteType)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.Images)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteReport)
                 .Where(a => !a.IsDeleted && a.Request.EnterpriseId == enterpriseId);
 
             if (filter.RequestId.HasValue)
@@ -105,10 +121,9 @@ namespace Application.Services
             if (filter.CollectorId.HasValue)
                 query = query.Where(x => x.CollectorId == filter.CollectorId.Value);
 
-            if (!string.IsNullOrWhiteSpace(filter.Status) &&
-                Enum.TryParse<AssignmentStatus>(filter.Status, true, out var st))
+            if (filter.Status.HasValue)
             {
-                query = query.Where(x => x.Status == st);
+                query = query.Where(x => x.Status == filter.Status.Value);
             }
 
             var total = await query.CountAsync();
@@ -131,6 +146,15 @@ namespace Application.Services
             var repo = _uow.GetRepository<CollectorAssignment>();
 
             var entity = await repo.NoTrackingEntities
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteType)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.Images)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteReport)
                 .FirstOrDefaultAsync(a => a.Id == id &&
                                           !a.IsDeleted &&
                                           a.CollectorId == collectorUserId);
@@ -144,12 +168,20 @@ namespace Application.Services
             var repo = _uow.GetRepository<CollectorAssignment>();
 
             var query = repo.NoTrackingEntities
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteType)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.Images)
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteReport)
                 .Where(a => !a.IsDeleted && a.CollectorId == collectorUserId);
 
-            if (!string.IsNullOrWhiteSpace(filter.Status) &&
-                Enum.TryParse<AssignmentStatus>(filter.Status, true, out var st))
+            if (filter.Status.HasValue)
             {
-                query = query.Where(x => x.Status == st);
+                query = query.Where(x => x.Status == filter.Status.Value);
             }
 
             if (filter.RequestId.HasValue)
@@ -180,8 +212,7 @@ namespace Application.Services
 
             if (entity == null) return false;
 
-            if (!Enum.TryParse<AssignmentStatus>(dto.Status, true, out var newStatus))
-                return false;
+            var newStatus = dto.Status;
 
             var allowed =
                 (entity.Status == AssignmentStatus.Assigned && newStatus == AssignmentStatus.OnTheWay) ||
@@ -207,15 +238,39 @@ namespace Application.Services
 
         private static CollectorAssignmentDto Map(CollectorAssignment x)
         {
+            var request = x.Request;
+            var item = request?.WasteReportWaste;
+            var report = item?.WasteReport;
+
             return new CollectorAssignmentDto
             {
                 Id = x.Id,
                 RequestId = x.RequestId,
                 CollectorId = x.CollectorId,
-                Status = x.Status.ToString(),
+
+                Status = x.Status,
                 CollectedAt = x.CollectedAt,
                 CollectedNote = x.CollectedNote,
-                CreatedTime = x.CreatedTime
+                CreatedTime = x.CreatedTime,
+                LastUpdatedTime = x.LastUpdatedTime,
+
+                EnterpriseId = request?.EnterpriseId ?? Guid.Empty,
+                RequestStatus = request?.Status ?? CollectionRequestStatus.Offered,
+                PriorityScore = request?.PriorityScore,
+
+                WasteReportWasteId = request?.WasteReportWasteId ?? Guid.Empty,
+                WasteTypeId = item?.WasteTypeId ?? Guid.Empty,
+                WasteTypeName = item?.WasteType?.Name,
+                Note = item?.Note,
+                ImageUrls = item?.Images?
+                    .Where(i => !i.IsDeleted)
+                    .Select(i => i.ImageUrl)
+                    .ToList() ?? new List<string>(),
+
+                WasteReportId = report?.Id ?? Guid.Empty,
+                Latitude = report?.Latitude,
+                Longitude = report?.Longitude,
+                RegionCode = report?.RegionCode
             };
         }
     }

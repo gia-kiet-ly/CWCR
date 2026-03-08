@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Core.Enum;
 
 namespace Application.Contract.DTOs
 {
-    // =============================
-    // COLLECTION REQUEST - RESPONSE
-    // =============================
     public class CollectionRequestResponseDto
     {
         public Guid Id { get; set; }
@@ -14,7 +10,7 @@ namespace Application.Contract.DTOs
         public Guid WasteReportId { get; set; }
 
         public Guid EnterpriseId { get; set; }
-        public string Status { get; set; } = default!;
+        public CollectionRequestStatus Status { get; set; }
         public int? PriorityScore { get; set; }
 
         // Waste info
@@ -28,16 +24,16 @@ namespace Application.Contract.DTOs
         public decimal? Longitude { get; set; }
         public string? RegionCode { get; set; }
 
+        // Extra info
+        public bool HasAssignment { get; set; }
+
         public DateTimeOffset CreatedTime { get; set; }
+        public DateTimeOffset? LastUpdatedTime { get; set; }
     }
 
-    // =============================
-    // FILTER + PAGING (ENTERPRISE INBOX)
-    // =============================
     public class CollectionRequestFilterDto
     {
-        // Offered/Accepted/Rejected/Assigned/Completed
-        public string? Status { get; set; }
+        public CollectionRequestStatus? Status { get; set; }
 
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
@@ -51,9 +47,6 @@ namespace Application.Contract.DTOs
         public List<CollectionRequestResponseDto> Items { get; set; } = new();
     }
 
-    // =============================
-    // ACTIONS
-    // =============================
     public class AcceptCollectionRequestDto
     {
         public Guid RequestId { get; set; }

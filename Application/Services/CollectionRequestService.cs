@@ -136,12 +136,13 @@ namespace Application.Services
         // ENTERPRISE: INBOX
         // =============================
         public async Task<PagedCollectionRequestDto> GetPagedForEnterpriseAsync(
-            Guid enterpriseId,
-            CollectionRequestFilterDto filter)
+    Guid enterpriseId,
+    CollectionRequestFilterDto filter)
         {
             var repo = _uow.GetRepository<CollectionRequest>();
 
             var query = repo.NoTrackingEntities
+                .Include(r => r.Assignments)
                 .Include(r => r.WasteReportWaste)
                     .ThenInclude(w => w.WasteType)
                 .Include(r => r.WasteReportWaste)
@@ -150,10 +151,9 @@ namespace Application.Services
                     .ThenInclude(w => w.WasteReport)
                 .Where(r => !r.IsDeleted && r.EnterpriseId == enterpriseId);
 
-            if (!string.IsNullOrWhiteSpace(filter.Status) &&
-                Enum.TryParse<CollectionRequestStatus>(filter.Status, true, out var st))
+            if (filter.Status.HasValue)
             {
-                query = query.Where(r => r.Status == st);
+                query = query.Where(r => r.Status == filter.Status.Value);
             }
 
             var total = await query.CountAsync();
@@ -265,7 +265,7 @@ AND Status IN ({{6}}, {{7}}, {{8}})
                 WasteReportWasteId = r.WasteReportWasteId,
                 WasteReportId = report.Id,
                 EnterpriseId = r.EnterpriseId,
-                Status = r.Status.ToString(),
+                Status = r.Status,
                 PriorityScore = r.PriorityScore,
 
                 WasteTypeId = item.WasteTypeId,
@@ -281,7 +281,9 @@ AND Status IN ({{6}}, {{7}}, {{8}})
                 Longitude = report.Longitude,
                 RegionCode = report.RegionCode,
 
-                CreatedTime = r.CreatedTime
+                HasAssignment = r.Assignments.Any(a => !a.IsDeleted),
+                CreatedTime = r.CreatedTime,
+                LastUpdatedTime = r.LastUpdatedTime
             };
         }
     }
