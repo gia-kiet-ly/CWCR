@@ -35,5 +35,7 @@ namespace Application.Contract.Interfaces
         // =============================
         Task<bool> DeleteAsync(
             Guid reportId);
+
+        Task<CitizenCollectionProofDto?> GetProofForCitizenAsync(Guid reportId, Guid citizenId);
     }
 }

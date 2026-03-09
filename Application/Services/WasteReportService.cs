@@ -228,6 +228,36 @@ namespace Application.Services
 
             return true;
         }
+        public async Task<CitizenCollectionProofDto?> GetProofForCitizenAsync(Guid reportId, Guid citizenId)
+        {
+            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
+            var proofRepo = _unitOfWork.GetRepository<CollectionProof>();
+
+            var report = await reportRepo.NoTrackingEntities
+                .FirstOrDefaultAsync(r => r.Id == reportId && r.CitizenId == citizenId);
+
+            if (report == null)
+                throw new Exception("Report not found or access denied");
+
+            var proof = await proofRepo.NoTrackingEntities
+                .Include(p => p.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                .FirstOrDefaultAsync(p =>
+                    p.Assignment.Request.WasteReportWaste.WasteReportId == reportId);
+
+            if (proof == null)
+                return null;
+
+            return new CitizenCollectionProofDto
+            {
+                ProofId = proof.Id,
+                CreatedTime = proof.CreatedTime,
+                Notes = proof.Note,
+                ReviewStatus = proof.ReviewStatus,
+                Images = new List<string> { proof.ImageUrl }
+            };
+        }
 
         // ================= HELPERS =================
 
