@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Core.Enum;
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
@@ -102,5 +103,17 @@ namespace Application.Contract.DTOs
         public int PageSize { get; set; }
 
         public List<WasteReportResponseDto> Items { get; set; } = new();
+    }
+    public class CitizenCollectionProofDto
+    {
+        public Guid ProofId { get; set; }
+
+        public  DateTimeOffset CreatedTime { get; set; }
+
+        public string Notes { get; set; }
+
+        public ProofReviewStatus ReviewStatus { get; set; }
+
+        public List<string> Images { get; set; } = new();
     }
 }

@@ -68,5 +68,20 @@ namespace API.Controllers
             var result = await _service.GetPagedAsync(filter);
             return Ok(result);
         }
+
+        [HttpGet("{reportId}/proof")]
+        //[Authorize]
+        public async Task<IActionResult> GetProof(Guid reportId)
+        {
+            var citizenId = Guid.Parse(
+                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            var result = await _service.GetProofForCitizenAsync(reportId, citizenId);
+
+            if (result == null)
+                return NotFound("Proof not uploaded yet");
+
+            return Ok(result);
+        }
     }
 }
