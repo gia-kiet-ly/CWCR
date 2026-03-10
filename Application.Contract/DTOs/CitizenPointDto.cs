@@ -1,9 +1,4 @@
 ﻿using Core.Enum;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Contract.DTOs
 {
@@ -36,11 +31,6 @@ namespace Application.Contract.DTOs
         public int TotalPoints { get; set; }
     }
 
-    public class CalculateCitizenPointRequest
-    {
-        public Guid WasteReportId { get; set; }
-    }
-
     public class CitizenPointHistoryDto
     {
         public Guid Id { get; set; }
@@ -54,6 +44,8 @@ namespace Application.Contract.DTOs
         public int Points { get; set; }
 
         public CitizenPointReason Reason { get; set; }
+
+        public string? Description { get; set; }
 
         public DateTimeOffset CreatedTime { get; set; }
     }

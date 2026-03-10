@@ -8,9 +8,7 @@ namespace Core.Enum
 {
     public enum CitizenPointReason
     {
-        ValidReport = 1,
-        CorrectWasteClassification = 2,
-        FastProcessing = 3,
-        HighQualityReport = 4
+        WasteCollectionCompleted = 1,
+        ManualAdjustment = 2
     }
 }

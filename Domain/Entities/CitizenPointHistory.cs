@@ -14,5 +14,7 @@ namespace Domain.Entities
         public int Points { get; set; }
 
         public CitizenPointReason Reason { get; set; }
+
+        public string? Description { get; set; }
     }
 }
