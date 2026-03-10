@@ -7,7 +7,7 @@ using System.Security.Claims;
 
 namespace API.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class WasteReportController : ControllerBase
@@ -22,8 +22,14 @@ namespace API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateWasteReportDto dto)
         {
-            var citizenId = Guid.Parse(
-                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (dto == null)
+                return BadRequest("Request body is required.");
+
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userIdValue))
+                return Unauthorized();
+
+            var citizenId = Guid.Parse(userIdValue);
 
             var result = await _service.CreateAsync(dto, citizenId);
 
@@ -33,14 +39,17 @@ namespace API.Controllers
                 result);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, UpdateWasteReportDto dto)
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWasteReportDto dto)
         {
+            if (dto == null)
+                return BadRequest("Request body is required.");
+
             var result = await _service.UpdateAsync(id, dto);
             return Ok(result);
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);
@@ -51,7 +60,7 @@ namespace API.Controllers
             return NoContent();
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await _service.GetByIdAsync(id);
@@ -69,12 +78,14 @@ namespace API.Controllers
             return Ok(result);
         }
 
-        [HttpGet("{reportId}/proof")]
-        //[Authorize]
+        [HttpGet("{reportId:guid}/proof")]
         public async Task<IActionResult> GetProof(Guid reportId)
         {
-            var citizenId = Guid.Parse(
-                User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userIdValue))
+                return Unauthorized();
+
+            var citizenId = Guid.Parse(userIdValue);
 
             var result = await _service.GetProofForCitizenAsync(reportId, citizenId);
 
