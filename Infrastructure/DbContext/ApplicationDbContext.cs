@@ -75,6 +75,9 @@ namespace Infrastructure.DbContext
                 entity.Property(e => e.Longitude)
                     .HasPrecision(10, 7);
 
+                entity.Property(e => e.IsPointCalculated)
+                    .HasDefaultValue(false);
+
                 entity.HasOne(e => e.Citizen)
                     .WithMany()
                     .HasForeignKey(e => e.CitizenId)
@@ -135,15 +138,18 @@ namespace Infrastructure.DbContext
 
                 entity.HasIndex(e => new { e.DistrictId, e.Code })
                     .IsUnique();
-            }); 
+            });
             // ======================== WasteReportWaste Configuration ========================
 
             builder.Entity<WasteReportWaste>(entity =>
             {
                 entity.HasKey(e => e.Id);
 
-                entity.Property(e => e.EstimatedWeightKg)
-                    .HasPrecision(10, 2);
+                entity.Property(e => e.Quantity)
+                    .IsRequired();
+
+                entity.ToTable(t =>
+                    t.HasCheckConstraint("CK_WasteReportWaste_Quantity", "[Quantity] > 0"));
 
                 entity.HasOne(e => e.WasteType)
                     .WithMany(wt => wt.WasteReportWastes)
@@ -343,17 +349,21 @@ namespace Infrastructure.DbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasOne(e => e.Enterprise)
-                    .WithMany(e => e.PointRules)
-                    .HasForeignKey(e => e.EnterpriseId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                entity.Property(e => e.BasePoint)
+                    .IsRequired();
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.ToTable(t =>
+                    t.HasCheckConstraint("CK_PointRule_BasePoint", "[BasePoint] > 0"));
 
                 entity.HasOne(e => e.WasteType)
                     .WithMany()
                     .HasForeignKey(e => e.WasteTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasIndex(e => new { e.EnterpriseId, e.WasteTypeId })
+                entity.HasIndex(e => e.WasteTypeId)
                     .IsUnique();
             });
 
@@ -603,6 +613,9 @@ namespace Infrastructure.DbContext
                     .HasConversion<string>()
                     .IsRequired();
 
+                entity.Property(e => e.Description)
+                    .HasMaxLength(500);
+
                 entity.HasOne(e => e.Citizen)
                     .WithMany()
                     .HasForeignKey(e => e.CitizenId)
@@ -613,7 +626,6 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(e => e.WasteReportId)
                     .OnDelete(DeleteBehavior.SetNull);
 
-                // leaderboard query
                 entity.HasIndex(e => e.CitizenId);
                 entity.HasIndex(e => e.CreatedTime);
                 entity.HasIndex(e => e.WasteReportId);

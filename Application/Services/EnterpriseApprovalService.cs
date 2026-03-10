@@ -53,7 +53,7 @@ namespace Application.Services
             var totalCount = await query.CountAsync();
 
             var items = await query
-                .OrderByDescending(x => x.SubmittedAt ?? x.CreatedTime.UtcDateTime)
+                .OrderByDescending(x => x.SubmittedAt ?? x.CreatedTime)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)
                 .Take(filter.PageSize)
                 .ToListAsync();

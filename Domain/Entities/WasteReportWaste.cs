@@ -11,7 +11,7 @@ namespace Domain.Entities
         public Guid WasteTypeId { get; set; }
         public WasteType WasteType { get; set; } = null!;
 
-        public decimal? EstimatedWeightKg { get; set; }
+        public int Quantity { get; set; }
 
         public string? Note { get; set; }
 
