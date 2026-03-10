@@ -119,9 +119,11 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
 
     var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
-    await RoleSeeder.SeedAsync(roleManager);
-
+    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var context = services.GetRequiredService<ApplicationDbContext>();
+
+    await RoleSeeder.SeedAsync(roleManager);
+    await AdminUserSeeder.SeedAsync(userManager);
     await LocationSeeder.SeedAsync(context);
 }
 

@@ -22,9 +22,10 @@ namespace Application.Contract.DTOs
     {
         public Guid WasteTypeId { get; set; }
 
+        public int Quantity { get; set; }
+
         public string? Note { get; set; }
 
-        // Upload nhiều ảnh
         public List<string> Images { get; set; } = new();
     }
 
@@ -70,6 +71,8 @@ namespace Application.Contract.DTOs
 
         public string? WasteTypeName { get; set; }
 
+        public int Quantity { get; set; }
+
         public string? Note { get; set; }
 
         public List<string> ImageUrls { get; set; } = new();
@@ -110,7 +113,7 @@ namespace Application.Contract.DTOs
 
         public  DateTimeOffset CreatedTime { get; set; }
 
-        public string Notes { get; set; }
+        public string? Notes { get; set; }
 
         public ProofReviewStatus ReviewStatus { get; set; }
 

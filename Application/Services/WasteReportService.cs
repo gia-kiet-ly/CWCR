@@ -11,11 +11,7 @@ namespace Application.Services
     public class WasteReportService : IWasteReportService
     {
         private readonly IUnitOfWork _unitOfWork;
-
-        // ✅ BE tự tính RegionCode từ lat/long
         private readonly IRegionCodeResolver _regionCodeResolver;
-
-        // ✅ NEW: tạo CollectionRequest sau khi tạo report
         private readonly ICollectionRequestService _collectionRequestService;
 
         public WasteReportService(
@@ -34,14 +30,15 @@ namespace Application.Services
             Guid citizenId)
         {
             if (!dto.Latitude.HasValue || !dto.Longitude.HasValue)
-                throw new Exception("Location is required");
+                throw new Exception("Location is required.");
+
+            if (dto.Wastes == null || !dto.Wastes.Any())
+                throw new Exception("At least one waste item is required.");
 
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
             var wasteItemRepo = _unitOfWork.GetRepository<WasteReportWaste>();
             var imageRepo = _unitOfWork.GetRepository<WasteImage>();
 
-            // ✅ BE reverse geocode -> RegionCode (Quận)
-            // Nếu fail thì set "UNKNOWN" để không crash flow (MVP)
             string? regionCode = null;
             try
             {
@@ -51,10 +48,9 @@ namespace Application.Services
             }
             catch
             {
-                // ignore
+                // MVP: nếu resolve fail thì fallback UNKNOWN
             }
 
-            // 1. Tạo WasteReport
             var report = new WasteReport
             {
                 CitizenId = citizenId,
@@ -66,27 +62,33 @@ namespace Application.Services
             };
 
             await reportRepo.InsertAsync(report);
-            await _unitOfWork.SaveAsync(); // cần save để report.Id có giá trị
+            await _unitOfWork.SaveAsync();
 
-            // 2. Tạo WasteReportWaste + WasteImage
             foreach (var wasteDto in dto.Wastes)
             {
+                if (wasteDto.WasteTypeId == Guid.Empty)
+                    throw new Exception("WasteTypeId is required.");
+
+                if (wasteDto.Quantity <= 0)
+                    throw new Exception("Quantity must be greater than 0.");
+
                 var wasteItem = new WasteReportWaste
                 {
                     WasteReportId = report.Id,
                     WasteTypeId = wasteDto.WasteTypeId,
+                    Quantity = wasteDto.Quantity,
                     Note = wasteDto.Note
                 };
 
                 await wasteItemRepo.InsertAsync(wasteItem);
-                await _unitOfWork.SaveAsync(); // cần save để wasteItem.Id có giá trị
+                await _unitOfWork.SaveAsync();
 
-                // ← SỬA: lưu từng image URL vào WasteImage
                 if (wasteDto.Images != null && wasteDto.Images.Count > 0)
                 {
                     foreach (var imageUrl in wasteDto.Images)
                     {
-                        if (string.IsNullOrWhiteSpace(imageUrl)) continue;
+                        if (string.IsNullOrWhiteSpace(imageUrl))
+                            continue;
 
                         await imageRepo.InsertAsync(new WasteImage
                         {
@@ -100,12 +102,10 @@ namespace Application.Services
                 }
             }
 
-            // ✅ NEW: Dispatch Top1 -> tạo CollectionRequest(Offered) cho từng WasteReportWaste
-            // Nếu RegionCode = UNKNOWN thì service sẽ tự bỏ qua (MVP)
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
 
             return await GetByIdAsync(report.Id)
-                   ?? throw new Exception("Create failed");
+                   ?? throw new Exception("Create failed.");
         }
 
         // ================= UPDATE =================
@@ -118,11 +118,14 @@ namespace Application.Services
             var report = await repo.GetByIdAsync(id);
 
             if (report == null || report.IsDeleted)
-                throw new Exception("WasteReport not found");
+                throw new Exception("WasteReport not found.");
 
             if (report.Status == WasteReportStatus.Collected ||
+                report.Status == WasteReportStatus.Verified ||
                 report.Status == WasteReportStatus.Rejected)
-                throw new Exception("This report cannot be modified");
+            {
+                throw new Exception("This report cannot be modified.");
+            }
 
             if (!string.IsNullOrWhiteSpace(dto.Description))
                 report.Description = dto.Description;
@@ -145,7 +148,7 @@ namespace Application.Services
             await _unitOfWork.SaveAsync();
 
             return await GetByIdAsync(id)
-                   ?? throw new Exception("Update failed");
+                   ?? throw new Exception("Update failed.");
         }
 
         // ================= GET BY ID =================
@@ -164,8 +167,7 @@ namespace Application.Services
         }
 
         // ================= GET PAGED =================
-        public async Task<PagedWasteReportDto> GetPagedAsync(
-            WasteReportFilterDto filter)
+        public async Task<PagedWasteReportDto> GetPagedAsync(WasteReportFilterDto filter)
         {
             var repo = _unitOfWork.GetRepository<WasteReport>();
 
@@ -217,27 +219,32 @@ namespace Application.Services
             if (report == null || report.IsDeleted)
                 return false;
 
-            if (report.Status == WasteReportStatus.Collected)
-                throw new Exception("Collected report cannot be deleted");
+            if (report.Status == WasteReportStatus.Collected ||
+                report.Status == WasteReportStatus.Verified)
+            {
+                throw new Exception("This report cannot be deleted.");
+            }
 
             report.IsDeleted = true;
             report.DeletedTime = DateTimeOffset.UtcNow;
+            report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
             repo.Update(report);
             await _unitOfWork.SaveAsync();
 
             return true;
         }
+
         public async Task<CitizenCollectionProofDto?> GetProofForCitizenAsync(Guid reportId, Guid citizenId)
         {
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
             var proofRepo = _unitOfWork.GetRepository<CollectionProof>();
 
             var report = await reportRepo.NoTrackingEntities
-                .FirstOrDefaultAsync(r => r.Id == reportId && r.CitizenId == citizenId);
+                .FirstOrDefaultAsync(r => r.Id == reportId && r.CitizenId == citizenId && !r.IsDeleted);
 
             if (report == null)
-                throw new Exception("Report not found or access denied");
+                throw new Exception("Report not found or access denied.");
 
             var proof = await proofRepo.NoTrackingEntities
                 .Include(p => p.Assignment)
@@ -260,7 +267,6 @@ namespace Application.Services
         }
 
         // ================= HELPERS =================
-
         private static string ExtractPublicId(string url)
         {
             try
@@ -268,14 +274,18 @@ namespace Application.Services
                 var uri = new Uri(url);
                 var segments = uri.AbsolutePath.Split('/');
                 var uploadIdx = Array.IndexOf(segments, "upload");
-                if (uploadIdx < 0) return url;
 
-                var afterUpload = segments.Skip(uploadIdx + 1)
+                if (uploadIdx < 0)
+                    return url;
+
+                var afterUpload = segments
+                    .Skip(uploadIdx + 1)
                     .SkipWhile(s => s.Length > 1 && s[0] == 'v' && s.Skip(1).All(char.IsDigit))
                     .ToArray();
 
                 var joined = string.Join("/", afterUpload);
                 var dotIdx = joined.LastIndexOf('.');
+
                 return dotIdx > 0 ? joined[..dotIdx] : joined;
             }
             catch
@@ -301,6 +311,7 @@ namespace Application.Services
                 {
                     WasteTypeId = x.WasteTypeId,
                     WasteTypeName = x.WasteType?.Name,
+                    Quantity = x.Quantity,
                     Note = x.Note,
                     ImageUrls = x.Images
                         .Where(i => !i.IsDeleted)
