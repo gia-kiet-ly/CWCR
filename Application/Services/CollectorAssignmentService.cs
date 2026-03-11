@@ -25,8 +25,10 @@ namespace Application.Services
             var assignmentRepo = _uow.GetRepository<CollectorAssignment>();
             var collectorProfileRepo = _uow.GetRepository<CollectorProfile>();
 
-            // 1) Request phải thuộc enterprise
+            // 1) Request ph?i thu?c enterprise
             var request = await requestRepo.Entities
+                .Include(r => r.WasteReportWaste)
+                    .ThenInclude(w => w.WasteReport)
                 .FirstOrDefaultAsync(r =>
                     r.Id == dto.RequestId &&
                     r.EnterpriseId == enterpriseId &&
@@ -35,7 +37,7 @@ namespace Application.Services
             if (request == null)
                 throw new Exception("Request not found or not belong to enterprise.");
 
-            // 2) Chỉ assign khi request đã Accepted
+            // 2) Ch? assign khi request dã Accepted
             if (request.Status != CollectionRequestStatus.Accepted)
                 throw new Exception("Only accepted request can be assigned.");
 
@@ -46,7 +48,7 @@ namespace Application.Services
             if (existedAssignment)
                 throw new Exception("Request already has an assignment.");
 
-            // 4) Collector phải là user thuộc enterprise này thông qua CollectorProfile
+            // 4) Collector ph?i là user thu?c enterprise này thông qua CollectorProfile
             var collectorProfile = await collectorProfileRepo.NoTrackingEntities
                 .FirstOrDefaultAsync(c =>
                     c.CollectorId == dto.CollectorId &&
@@ -68,6 +70,8 @@ namespace Application.Services
 
             request.Status = CollectionRequestStatus.Assigned;
             request.LastUpdatedTime = DateTimeOffset.UtcNow;
+            request.WasteReportWaste.WasteReport.Status = WasteReportStatus.Assigned;
+            request.WasteReportWaste.WasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
             requestRepo.Update(request);
 
             await _uow.SaveAsync();
@@ -206,6 +210,9 @@ namespace Application.Services
             var repo = _uow.GetRepository<CollectorAssignment>();
 
             var entity = await repo.Entities
+                .Include(a => a.Request)
+                    .ThenInclude(r => r.WasteReportWaste)
+                        .ThenInclude(w => w.WasteReport)
                 .FirstOrDefaultAsync(a => a.Id == id &&
                                           !a.IsDeleted &&
                                           a.CollectorId == collectorUserId);
@@ -226,6 +233,18 @@ namespace Application.Services
             {
                 entity.CollectedAt = DateTimeOffset.UtcNow;
                 entity.CollectedNote = dto.CollectedNote;
+            }
+
+            if (entity.Request?.WasteReportWaste?.WasteReport != null)
+            {
+                entity.Request.WasteReportWaste.WasteReport.Status = newStatus switch
+                {
+                    AssignmentStatus.Assigned => WasteReportStatus.Assigned,
+                    AssignmentStatus.OnTheWay => WasteReportStatus.OnTheWay,
+                    AssignmentStatus.Collected => WasteReportStatus.Collected,
+                    _ => entity.Request.WasteReportWaste.WasteReport.Status
+                };
+                entity.Request.WasteReportWaste.WasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
             }
 
             entity.LastUpdatedTime = DateTimeOffset.UtcNow;
