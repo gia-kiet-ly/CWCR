@@ -107,11 +107,63 @@ namespace Application.Services
             return await GetByIdAsync(report.Id)
                    ?? throw new Exception("Create failed.");
         }
+        // ================= REDISPATCH =================
+        public async Task RedispatchAsync(Guid reportId)
+        {
+            var repo = _unitOfWork.GetRepository<WasteReport>();
 
+            var report = await repo.GetByIdAsync(reportId);
+
+            if (report == null || report.IsDeleted)
+                throw new Exception("WasteReport not found.");
+
+            if (report.Status != WasteReportStatus.NoEnterpriseAvailable)
+                throw new Exception("Redispatch is not allowed.");
+
+            report.Status = WasteReportStatus.Pending;
+            report.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+            repo.Update(report);
+            await _unitOfWork.SaveAsync();
+
+            await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
+        }
+        // ================= REJECT HISTORY =================
+        public async Task<List<RejectHistoryDto>> GetRejectHistoryAsync(Guid reportId, Guid citizenId)
+        {
+            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
+            var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
+
+            var report = await reportRepo.NoTrackingEntities
+                .FirstOrDefaultAsync(x => x.Id == reportId && x.CitizenId == citizenId && !x.IsDeleted);
+
+            if (report == null)
+                throw new Exception("Report not found or access denied.");
+
+            var requests = await requestRepo.NoTrackingEntities
+                .Include(x => x.Enterprise)
+                .Include(x => x.WasteReportWaste)
+                .Where(x =>
+                    x.WasteReportWaste.WasteReportId == reportId &&
+                    x.Status == CollectionRequestStatus.Rejected)
+                .OrderByDescending(x => x.CreatedTime)
+                .ToListAsync();
+
+            return requests.Select(x => new RejectHistoryDto
+            {
+                RequestId = x.Id,
+                EnterpriseId = x.EnterpriseId,
+                EnterpriseName = x.Enterprise?.Name,
+                RejectReason = x.RejectReason,
+                RejectReasonName = x.RejectReason?.ToString(),
+                RejectNote = x.RejectNote,
+                CreatedTime = x.CreatedTime
+            }).ToList();
+        }
         // ================= UPDATE =================
         public async Task<WasteReportResponseDto> UpdateAsync(
-            Guid id,
-            UpdateWasteReportDto dto)
+        Guid id,
+        UpdateWasteReportDto dto)
         {
             var repo = _unitOfWork.GetRepository<WasteReport>();
 
@@ -120,9 +172,13 @@ namespace Application.Services
             if (report == null || report.IsDeleted)
                 throw new Exception("WasteReport not found.");
 
-            if (report.Status == WasteReportStatus.Collected ||
-                report.Status == WasteReportStatus.Verified ||
-                report.Status == WasteReportStatus.Rejected)
+            // ❌ Không cho sửa nếu đang dispute
+            if (report.Status == WasteReportStatus.Disputed)
+                throw new Exception("This report is under dispute and cannot be modified.");
+
+            // ✅ Chỉ cho edit khi reject hoặc không có enterprise
+            if (report.Status != WasteReportStatus.Rejected &&
+                report.Status != WasteReportStatus.NoEnterpriseAvailable)
             {
                 throw new Exception("This report cannot be modified.");
             }
@@ -136,16 +192,16 @@ namespace Application.Services
             if (dto.Longitude.HasValue)
                 report.Longitude = dto.Longitude;
 
-            if (!string.IsNullOrWhiteSpace(dto.Status) &&
-                Enum.TryParse<WasteReportStatus>(dto.Status, true, out var newStatus))
-            {
-                report.Status = newStatus;
-            }
+            // reset status để dispatch lại
+            report.Status = WasteReportStatus.Pending;
 
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
             repo.Update(report);
             await _unitOfWork.SaveAsync();
+
+            // dispatch lại enterprise
+            await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
 
             return await GetByIdAsync(id)
                    ?? throw new Exception("Update failed.");

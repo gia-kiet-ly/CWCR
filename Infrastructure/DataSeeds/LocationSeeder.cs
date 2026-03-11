@@ -15,7 +15,7 @@ namespace Infrastructure.DataSeeds
                 {
                     Id = Guid.NewGuid(),
                     Name = "Thành phố Thủ Đức",
-                    Code = "THU_DUC",
+                    Code = "THU_ĐUC",
                     ProvinceCode = "HCM"
                 };
 

@@ -12,9 +12,14 @@ namespace Domain.Entities
         public RecyclingEnterprise Enterprise { get; set; } = null!;
 
         public CollectionRequestStatus Status { get; set; }
+
+        // điểm ưu tiên khi dispatch enterprise
         public int? PriorityScore { get; set; }
+
+        // ===== Reject info =====
+        public RejectReason? RejectReason { get; set; }
+        public string? RejectNote { get; set; }
 
         public ICollection<CollectorAssignment> Assignments { get; set; } = new List<CollectorAssignment>();
     }
-
 }

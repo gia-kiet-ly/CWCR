@@ -39,7 +39,22 @@ namespace Application.Contract.DTOs
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
 
-        public string? Status { get; set; }
+    }
+    public class RejectHistoryDto
+    {
+        public Guid RequestId { get; set; }
+
+        public Guid EnterpriseId { get; set; }
+
+        public string? EnterpriseName { get; set; }
+
+        public RejectReason? RejectReason { get; set; }
+
+        public string? RejectReasonName { get; set; }
+
+        public string? RejectNote { get; set; }
+
+        public DateTimeOffset CreatedTime { get; set; }
     }
 
     // =============================

@@ -15,7 +15,9 @@ namespace Core.Enum
         Collected,
         Verified,
         Rejected,
-        Disputed
+        Disputed,
+
+        NoEnterpriseAvailable
     }
 
 }

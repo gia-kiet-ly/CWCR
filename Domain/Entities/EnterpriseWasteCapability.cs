@@ -9,7 +9,7 @@ namespace Domain.Entities
 
         public Guid WasteTypeId { get; set; }
         public WasteType WasteType { get; set; }
-
+        public decimal AssignedTodayKg { get; set; } = 0;
         public decimal DailyCapacityKg { get; set; }
     }
 }
