@@ -208,6 +208,8 @@ namespace Application.Services
             var entity = await repo.Entities
                 .Include(p => p.Assignment)
                     .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                            .ThenInclude(w => w.WasteReport)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (entity == null) return false;
@@ -233,6 +235,13 @@ namespace Application.Services
             {
                 entity.Assignment.Request.Status = CollectionRequestStatus.Completed;
                 entity.Assignment.Request.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+                var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport;
+                if (wasteReport != null)
+                {
+                    wasteReport.Status = WasteReportStatus.Verified;
+                    wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
+                }
             }
 
             repo.Update(entity);
