@@ -10,51 +10,71 @@ namespace Application.Contract.DTOs
         public Guid WasteReportId { get; set; }
 
         public Guid EnterpriseId { get; set; }
+
         public CollectionRequestStatus Status { get; set; }
+
         public int? PriorityScore { get; set; }
 
-        // Waste info
+        // ===== Reject Info =====
+        public RejectReason? RejectReason { get; set; }
+        public string? RejectReasonName { get; set; }
+        public string? RejectNote { get; set; }
+
+        // ===== Waste info =====
         public Guid WasteTypeId { get; set; }
         public string? WasteTypeName { get; set; }
         public string? Note { get; set; }
+
         public List<string> ImageUrls { get; set; } = new();
 
-        // Report location
+        // ===== Report location =====
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
         public string? RegionCode { get; set; }
 
-        // Extra info
+        // ===== Extra info =====
         public bool HasAssignment { get; set; }
 
         public DateTimeOffset CreatedTime { get; set; }
         public DateTimeOffset? LastUpdatedTime { get; set; }
     }
 
+
     public class CollectionRequestFilterDto
     {
         public CollectionRequestStatus? Status { get; set; }
 
         public int PageNumber { get; set; } = 1;
+
         public int PageSize { get; set; } = 10;
     }
+
 
     public class PagedCollectionRequestDto
     {
         public int TotalCount { get; set; }
+
         public int PageNumber { get; set; }
+
         public int PageSize { get; set; }
+
         public List<CollectionRequestResponseDto> Items { get; set; } = new();
     }
+
 
     public class AcceptCollectionRequestDto
     {
         public Guid RequestId { get; set; }
     }
 
+
     public class RejectCollectionRequestDto
     {
         public Guid RequestId { get; set; }
-        public string? Reason { get; set; }
+
+        public RejectReason Reason { get; set; }
+
+        public string? Note { get; set; }
     }
+
 }

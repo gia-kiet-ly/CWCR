@@ -1,4 +1,5 @@
 ﻿using Application.Contract.DTOs;
+using Core.Enum;
 
 namespace Application.Contract.Interfaces.Services
 {
@@ -18,6 +19,6 @@ namespace Application.Contract.Interfaces.Services
         // ENTERPRISE: ACTIONS
         // =============================
         Task<bool> AcceptAsync(Guid enterpriseId, Guid requestId);
-        Task<bool> RejectAsync(Guid enterpriseId, Guid requestId, string? reason);
+        Task<bool> RejectAsync(Guid enterpriseId, Guid requestId, RejectReason reason, string? note);
     }
 }

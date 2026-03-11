@@ -37,5 +37,7 @@ namespace Application.Contract.Interfaces
             Guid reportId);
 
         Task<CitizenCollectionProofDto?> GetProofForCitizenAsync(Guid reportId, Guid citizenId);
+        Task RedispatchAsync(Guid reportId);
+        Task<List<RejectHistoryDto>> GetRejectHistoryAsync(Guid reportId, Guid citizenId);
     }
 }

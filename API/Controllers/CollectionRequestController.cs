@@ -68,7 +68,12 @@ namespace API.Controllers
             var enterpriseId = await ResolveEnterpriseIdFromTokenAsync();
             if (enterpriseId == null) return Forbid();
 
-            var ok = await _service.RejectAsync(enterpriseId.Value, dto.RequestId, dto.Reason);
+            var ok = await _service.RejectAsync(
+                enterpriseId.Value,
+                dto.RequestId,
+                dto.Reason,
+                dto.Note);   // thêm dòng này
+
             if (!ok) return BadRequest("Cannot reject request");
 
             return Ok(new { message = "Rejected" });

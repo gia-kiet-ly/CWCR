@@ -94,5 +94,30 @@ namespace API.Controllers
 
             return Ok(result);
         }
+        [HttpPost("{id:guid}/redispatch")]
+        public async Task<IActionResult> Redispatch(Guid id)
+        {
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userIdValue))
+                return Unauthorized();
+
+            await _service.RedispatchAsync(id);
+
+            return Ok("Redispatch triggered.");
+        }
+
+        [HttpGet("{reportId:guid}/reject-history")]
+        public async Task<IActionResult> GetRejectHistory(Guid reportId)
+        {
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userIdValue))
+                return Unauthorized();
+
+            var citizenId = Guid.Parse(userIdValue);
+
+            var result = await _service.GetRejectHistoryAsync(reportId, citizenId);
+
+            return Ok(result);
+        }
     }
 }
