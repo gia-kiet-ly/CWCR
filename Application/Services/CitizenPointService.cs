@@ -1,24 +1,28 @@
 ﻿using Application.Contract.DTOs;
+using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
-using Domain.Entities;
-using Infrastructure.DbContext;
-using Microsoft.EntityFrameworkCore;
+using Application.Contract.Paggings;
 using Core.Enum;
+using Core.Utils;
+using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services
 {
     public class CitizenPointService : ICitizenPointService
     {
-        private readonly ApplicationDbContext _db;
+        private readonly IUnitOfWork _uow;
 
-        public CitizenPointService(ApplicationDbContext db)
+        public CitizenPointService(IUnitOfWork uow)
         {
-            _db = db;
+            _uow = uow;
         }
 
         public async Task<CitizenPointDto?> GetPointAsync(Guid citizenId)
         {
-            var point = await _db.CitizenPoints
+            var repo = _uow.GetRepository<CitizenPoint>();
+
+            var point = await repo.Entities
                 .Include(p => p.Citizen)
                 .FirstOrDefaultAsync(p => p.CitizenId == citizenId);
 
@@ -34,12 +38,11 @@ namespace Application.Services
             };
         }
 
-        public async Task<IEnumerable<CitizenPointHistoryDto>> GetHistoryAsync(
-            Guid citizenId,
-            int pageNumber = 1,
-            int pageSize = 20)
+        public async Task<IEnumerable<CitizenPointHistoryDto>> GetHistoryAsync(Guid citizenId, int pageNumber = 1, int pageSize = 20)
         {
-            return await _db.CitizenPointHistories
+            var repo = _uow.GetRepository<CitizenPointHistory>();
+
+            return await repo.Entities
                 .Include(h => h.Citizen)
                 .Where(h => h.CitizenId == citizenId)
                 .OrderByDescending(h => h.CreatedTime)
@@ -61,7 +64,9 @@ namespace Application.Services
 
         public async Task<IEnumerable<LeaderboardDto>> GetLeaderboardAsync(int topCount = 10)
         {
-            var points = await _db.CitizenPoints
+            var repo = _uow.GetRepository<CitizenPoint>();
+
+            var points = await repo.Entities
                 .Include(p => p.Citizen)
                 .OrderByDescending(p => p.TotalPoints)
                 .Take(topCount)
@@ -79,9 +84,14 @@ namespace Application.Services
 
         public async Task<CitizenPointDto> AwardPointsForVerifiedReportAsync(Guid wasteReportId)
         {
-            using var transaction = await _db.Database.BeginTransactionAsync();
+            var reportRepo = _uow.GetRepository<WasteReport>();
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
+            var ruleRepo = _uow.GetRepository<PointRule>();
 
-            var report = await _db.WasteReports
+            await _uow.BeginTransactionAsync();
+
+            var report = await reportRepo.Entities
                 .Include(r => r.Citizen)
                 .Include(r => r.Wastes)
                     .ThenInclude(w => w.WasteType)
@@ -89,18 +99,14 @@ namespace Application.Services
 
             if (report == null)
                 throw new Exception("WasteReport not found.");
-
             if (report.Status != WasteReportStatus.Verified)
                 throw new Exception("WasteReport is not verified yet.");
-
             if (report.IsPointCalculated)
                 throw new Exception("Points have already been calculated for this report.");
-
             if (report.Wastes == null || !report.Wastes.Any())
                 throw new Exception("WasteReport does not contain any waste items.");
 
-            var citizenPoint = await _db.CitizenPoints
-                .Include(p => p.Citizen)
+            var citizenPoint = await pointRepo.Entities
                 .FirstOrDefaultAsync(p => p.CitizenId == report.CitizenId);
 
             if (citizenPoint == null)
@@ -110,29 +116,24 @@ namespace Application.Services
                     CitizenId = report.CitizenId,
                     TotalPoints = 0
                 };
-
-                _db.CitizenPoints.Add(citizenPoint);
+                await pointRepo.InsertAsync(citizenPoint);
             }
 
             int totalPointsToAdd = 0;
+            var rules = await ruleRepo.Entities.Where(r => r.IsActive).ToListAsync();
 
             foreach (var waste in report.Wastes)
             {
                 if (waste.Quantity <= 0)
                     continue;
 
-                var rule = await _db.PointRules
-                    .FirstOrDefaultAsync(r =>
-                        r.WasteTypeId == waste.WasteTypeId &&
-                        r.IsActive);
-
-                if (rule == null)
-                    continue;
+                var rule = rules.FirstOrDefault(r => r.WasteTypeId == waste.WasteTypeId);
+                if (rule == null) continue;
 
                 int itemPoints = rule.BasePoint * waste.Quantity;
                 totalPointsToAdd += itemPoints;
 
-                _db.CitizenPointHistories.Add(new CitizenPointHistory
+                await historyRepo.InsertAsync(new CitizenPointHistory
                 {
                     CitizenId = report.CitizenId,
                     WasteReportId = report.Id,
@@ -152,8 +153,7 @@ namespace Application.Services
             report.PointCalculatedAt = DateTime.UtcNow;
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-            await _db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await _uow.SaveAsync();
 
             return new CitizenPointDto
             {
@@ -167,7 +167,10 @@ namespace Application.Services
 
         public async Task<CitizenPointDto> UpdatePointAsync(Guid citizenId, UpdateCitizenPointRequest request)
         {
-            var citizenPoint = await _db.CitizenPoints
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
+
+            var citizenPoint = await pointRepo.Entities
                 .Include(p => p.Citizen)
                 .FirstOrDefaultAsync(p => p.CitizenId == citizenId);
 
@@ -183,7 +186,7 @@ namespace Application.Services
 
             if (diff != 0)
             {
-                _db.CitizenPointHistories.Add(new CitizenPointHistory
+                await historyRepo.InsertAsync(new CitizenPointHistory
                 {
                     CitizenId = citizenId,
                     WasteReportId = null,
@@ -193,7 +196,7 @@ namespace Application.Services
                 });
             }
 
-            await _db.SaveChangesAsync();
+            await _uow.SaveAsync();
 
             return new CitizenPointDto
             {

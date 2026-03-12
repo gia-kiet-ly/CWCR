@@ -1,6 +1,7 @@
 ﻿using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Services;
 using Domain.Base;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
@@ -20,6 +21,7 @@ namespace API.Controllers
         /// Lấy tổng điểm hiện tại của công dân.
         /// </summary>
         [HttpGet("{citizenId:guid}")]
+        [Authorize(Roles = "Citizen,Admin")] // cả admin và citizen được phép
         public async Task<IActionResult> GetPoint(Guid citizenId)
         {
             var point = await _service.GetPointAsync(citizenId);
@@ -35,6 +37,7 @@ namespace API.Controllers
         /// Lấy lịch sử điểm của công dân, có phân trang.
         /// </summary>
         [HttpGet("{citizenId:guid}/history")]
+        [Authorize(Roles = "Citizen,Admin")]
         public async Task<IActionResult> GetHistory(Guid citizenId, int pageNumber = 1, int pageSize = 20)
         {
             var history = await _service.GetHistoryAsync(citizenId, pageNumber, pageSize);
@@ -45,6 +48,7 @@ namespace API.Controllers
         /// Lấy bảng xếp hạng công dân theo tổng điểm.
         /// </summary>
         [HttpGet("leaderboard")]
+        [Authorize(Roles = "Citizen,Admin")]
         public async Task<IActionResult> GetLeaderboard(int topCount = 10)
         {
             var leaderboard = await _service.GetLeaderboardAsync(topCount);
@@ -55,6 +59,7 @@ namespace API.Controllers
         /// Cộng điểm cho công dân từ một waste report đã được xác minh.
         /// </summary>
         [HttpPost("award/{wasteReportId:guid}")]
+        [Authorize(Roles = "Admin")] // chỉ admin mới có quyền award
         public async Task<IActionResult> AwardPointsForVerifiedReport(Guid wasteReportId)
         {
             if (wasteReportId == Guid.Empty)
@@ -70,6 +75,7 @@ namespace API.Controllers
         /// Cập nhật điểm của công dân (dành cho admin).
         /// </summary>
         [HttpPut("{citizenId:guid}")]
+        [Authorize(Roles = "Admin")] // chỉ admin mới update
         public async Task<IActionResult> UpdatePoint(Guid citizenId, [FromBody] UpdateCitizenPointRequest request)
         {
             if (request == null)

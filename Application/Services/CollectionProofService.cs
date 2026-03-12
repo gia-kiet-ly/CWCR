@@ -12,10 +12,11 @@ namespace Application.Services
     public class CollectionProofService : ICollectionProofService
     {
         private readonly IUnitOfWork _uow;
-
-        public CollectionProofService(IUnitOfWork uow)
+        private readonly ICitizenPointService _citizenPointService;
+        public CollectionProofService(IUnitOfWork uow, ICitizenPointService citizenPointService)
         {
             _uow = uow;
+            _citizenPointService = citizenPointService;
         }
 
         // ================= COLLECTOR: CREATE =================
@@ -242,6 +243,11 @@ namespace Application.Services
                     wasteReport.Status = WasteReportStatus.Verified;
                     wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
                 }
+
+                // ⭐ AWARD POINT HERE
+                await _citizenPointService.AwardPointsForVerifiedReportAsync(
+                    wasteReport!.Id
+                );
             }
 
             repo.Update(entity);
