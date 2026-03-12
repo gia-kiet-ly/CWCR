@@ -11,7 +11,7 @@ namespace API.Controllers
 {
     [ApiController]
     [Route("api/enterprise/proofs")]
-    [Authorize(Roles = "RecyclingEnterprise")]
+    [Authorize(Roles = "Enterprise")]
     public class EnterpriseProofController : ControllerBase
     {
         private readonly ICollectionProofService _service;
