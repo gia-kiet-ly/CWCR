@@ -39,7 +39,7 @@ namespace Application
             services.AddScoped<IDistrictService, DistrictService>();
             services.AddScoped<IWardService, WardService>();
             services.AddScoped<ICollectorService, CollectorService>();
-
+            services.AddScoped<IPointRuleService, PointRuleService>();
             return services;
         }
     }

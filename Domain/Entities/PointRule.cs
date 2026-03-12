@@ -9,6 +9,8 @@ namespace Domain.Entities
 
         public int BasePoint { get; set; }
 
+        public string Description { get; set; } = string.Empty;
+
         public bool IsActive { get; set; } = true;
     }
 }
