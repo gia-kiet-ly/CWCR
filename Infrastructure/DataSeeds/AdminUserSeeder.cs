@@ -6,40 +6,70 @@ namespace Infrastructure.DataSeeds
 {
     public static class AdminUserSeeder
     {
-        public static async Task SeedAsync(
-            UserManager<ApplicationUser> userManager)
+        public static async Task SeedAsync(UserManager<ApplicationUser> userManager)
         {
-            const string adminEmail = "admin@system.com";
-            const string adminPassword = "String@123";
+            // ================= ADMIN =================
+            await EnsureUserAsync(userManager,
+                email: "admin@system.com",
+                fullName: "System Administrator",
+                password: "String@123",
+                role: SystemRoles.Administrator);
 
-            var existingUser = await userManager.FindByEmailAsync(adminEmail);
+            // ================= COLLECTOR =================
+            await EnsureUserAsync(userManager,
+                email: "collector@system.com",
+                fullName: "Default Collector",
+                password: "String@123",
+                role: SystemRoles.Collector);
+
+            // ================= ENTERPRISE =================
+            await EnsureUserAsync(userManager,
+                email: "enterprise@system.com",
+                fullName: "Default Enterprise",
+                password: "String@123",
+                role: SystemRoles.RecyclingEnterprise);
+
+            // ================= CITIZEN =================
+            await EnsureUserAsync(userManager,
+                email: "citizen@system.com",
+                fullName: "Default Citizen",
+                password: "String@123",
+                role: SystemRoles.Citizen);
+        }
+
+        private static async Task EnsureUserAsync(
+            UserManager<ApplicationUser> userManager,
+            string email,
+            string fullName,
+            string password,
+            string role)
+        {
+            var existingUser = await userManager.FindByEmailAsync(email);
             if (existingUser != null)
                 return;
 
-            var adminUser = new ApplicationUser
+            var user = new ApplicationUser
             {
                 Id = Guid.NewGuid(),
-                Email = adminEmail,
-                UserName = adminEmail,
-                FullName = "System Administrator",
+                Email = email,
+                UserName = email,
+                FullName = fullName,
                 EmailConfirmed = true,
                 IsActive = true
             };
 
-            var result = await userManager.CreateAsync(adminUser, adminPassword);
-
+            var result = await userManager.CreateAsync(user, password);
             if (!result.Succeeded)
             {
                 var errors = string.Join("; ", result.Errors.Select(e => e.Description));
-                throw new Exception($"Failed to create admin user: {errors}");
+                throw new Exception($"Failed to create user {email}: {errors}");
             }
 
-            var addToRoleResult = await userManager.AddToRoleAsync(adminUser, SystemRoles.Administrator);
-
+            var addToRoleResult = await userManager.AddToRoleAsync(user, role);
             if (!addToRoleResult.Succeeded)
             {
                 var errors = string.Join("; ", addToRoleResult.Errors.Select(e => e.Description));
-                throw new Exception($"Failed to assign admin role: {errors}");
+                throw new Exception($"Failed to assign role {role} to {email}: {errors}");
             }
         }
     }
