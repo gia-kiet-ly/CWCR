@@ -252,7 +252,7 @@ namespace Infrastructure.DbContext
                     .OnDelete(DeleteBehavior.Restrict);
 
                 // MVP: 1 món rác -> 1 request
-                entity.HasIndex(e => e.WasteReportWasteId).IsUnique();
+                entity.HasIndex(e => new { e.WasteReportWasteId, e.EnterpriseId }).IsUnique();
 
                 // dashboard enterprise
                 entity.HasIndex(e => new { e.EnterpriseId, e.Status });
