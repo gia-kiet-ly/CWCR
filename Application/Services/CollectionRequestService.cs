@@ -264,6 +264,22 @@ namespace Application.Services
                 return true;
             }
 
+            // Nếu reject vì sai loại rác hoặc ảnh không rõ → chờ citizen sửa
+            if (reason == RejectReason.WrongWasteType ||
+                reason == RejectReason.ImageNotClear)
+            {
+                var report = entity.WasteReportWaste.WasteReport;
+
+                report.Status = WasteReportStatus.Rejected;
+                report.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+                reportRepo.Update(report);
+                await _uow.SaveAsync();
+
+                return true;
+            }
+
+            // Các reason khác → dispatch enterprise tiếp theo
             var nextEnterprise = await FindBestEnterpriseTop1Async(
                 wasteItemId,
                 entity.WasteReportWaste.WasteReport.RegionCode,

@@ -162,12 +162,13 @@ namespace Application.Services
         }
         // ================= UPDATE =================
         public async Task<WasteReportResponseDto> UpdateAsync(
-        Guid id,
-        UpdateWasteReportDto dto)
+            Guid id,
+            UpdateWasteReportDto dto)
         {
-            var repo = _unitOfWork.GetRepository<WasteReport>();
+            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
+            var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
 
-            var report = await repo.GetByIdAsync(id);
+            var report = await reportRepo.GetByIdAsync(id);
 
             if (report == null || report.IsDeleted)
                 throw new Exception("WasteReport not found.");
@@ -176,11 +177,26 @@ namespace Application.Services
             if (report.Status == WasteReportStatus.Disputed)
                 throw new Exception("This report is under dispute and cannot be modified.");
 
-            // ✅ Chỉ cho edit khi reject hoặc không có enterprise
-            if (report.Status != WasteReportStatus.Rejected &&
-                report.Status != WasteReportStatus.NoEnterpriseAvailable)
-            {
+            if (report.Status != WasteReportStatus.Rejected)
                 throw new Exception("This report cannot be modified.");
+
+            // lấy reject gần nhất
+            var lastReject = await requestRepo.NoTrackingEntities
+                .Include(x => x.WasteReportWaste)
+                .Where(x =>
+                    x.WasteReportWaste.WasteReportId == id &&
+                    x.Status == CollectionRequestStatus.Rejected)
+                .OrderByDescending(x => x.CreatedTime)
+                .FirstOrDefaultAsync();
+
+            if (lastReject == null)
+                throw new Exception("Reject information not found.");
+
+            // ❌ chỉ cho edit nếu reason hợp lệ
+            if (lastReject.RejectReason != RejectReason.WrongWasteType &&
+                lastReject.RejectReason != RejectReason.ImageNotClear)
+            {
+                throw new Exception("This reject reason does not allow editing.");
             }
 
             if (!string.IsNullOrWhiteSpace(dto.Description))
@@ -194,10 +210,9 @@ namespace Application.Services
 
             // reset status để dispatch lại
             report.Status = WasteReportStatus.Pending;
-
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-            repo.Update(report);
+            reportRepo.Update(report);
             await _unitOfWork.SaveAsync();
 
             // dispatch lại enterprise
