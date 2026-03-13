@@ -1,5 +1,4 @@
 ﻿using Core.Enum;
-using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
@@ -11,7 +10,7 @@ namespace Application.Contract.DTOs
     {
         public string? Description { get; set; }
 
-        // Để null, sau này GPS sẽ tự fill
+        // GPS có thể tự fill
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
 
@@ -39,7 +38,25 @@ namespace Application.Contract.DTOs
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
 
+        // Cho phép chỉnh sửa waste items khi bị reject
+        public List<UpdateWasteItemDto>? Wastes { get; set; }
     }
+
+    public class UpdateWasteItemDto
+    {
+        public Guid WasteTypeId { get; set; }
+
+        public int Quantity { get; set; }
+
+        public string? Note { get; set; }
+
+        // Replace lại toàn bộ images nếu citizen upload lại
+        public List<string>? Images { get; set; }
+    }
+
+    // =============================
+    // REJECT HISTORY
+    // =============================
     public class RejectHistoryDto
     {
         public Guid RequestId { get; set; }
@@ -68,8 +85,6 @@ namespace Application.Contract.DTOs
 
         public string? Description { get; set; }
 
-        // Response nên trả giá trị thực tế (không nullable)
-        // Nếu DB cho phép null thì bạn đổi thành decimal?
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
 
@@ -122,11 +137,15 @@ namespace Application.Contract.DTOs
 
         public List<WasteReportResponseDto> Items { get; set; } = new();
     }
+
+    // =============================
+    // CITIZEN COLLECTION PROOF
+    // =============================
     public class CitizenCollectionProofDto
     {
         public Guid ProofId { get; set; }
 
-        public  DateTimeOffset CreatedTime { get; set; }
+        public DateTimeOffset CreatedTime { get; set; }
 
         public string? Notes { get; set; }
 
