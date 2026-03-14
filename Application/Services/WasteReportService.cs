@@ -117,6 +117,13 @@ namespace Application.Services
             if (report == null || report.IsDeleted)
                 throw new Exception("WasteReport not found.");
 
+            if (report.RedispatchCount >= 1)
+                throw new Exception("Redispatch limit reached.");
+
+            report.RedispatchCount++;
+            if (report == null || report.IsDeleted)
+                throw new Exception("WasteReport not found.");
+
             if (report.Status != WasteReportStatus.NoEnterpriseAvailable)
                 throw new Exception("Redispatch is not allowed.");
 
@@ -167,6 +174,19 @@ namespace Application.Services
         {
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
             var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
+
+            var oldRequests = await requestRepo.Entities
+                .Include(x => x.WasteReportWaste)
+                .Where(x => x.WasteReportWaste.WasteReportId == id && !x.IsDeleted)
+                .ToListAsync();
+
+            foreach (var r in oldRequests)
+            {
+                r.IsDeleted = true;
+                requestRepo.Update(r);
+            }
+
+            await _unitOfWork.SaveAsync();
 
             var report = await reportRepo.GetByIdAsync(id);
 

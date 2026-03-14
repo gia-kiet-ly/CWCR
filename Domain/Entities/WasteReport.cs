@@ -18,7 +18,7 @@ namespace Domain.Entities
 
         public bool IsPointCalculated { get; set; } = false;
         public DateTime? PointCalculatedAt { get; set; }
-
+        public int RedispatchCount { get; set; }
         public ICollection<WasteReportWaste> Wastes { get; set; }
             = new List<WasteReportWaste>();
     }
