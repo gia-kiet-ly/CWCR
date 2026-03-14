@@ -89,8 +89,6 @@ namespace Application.Services
             var historyRepo = _uow.GetRepository<CitizenPointHistory>();
             var ruleRepo = _uow.GetRepository<PointRule>();
 
-            await _uow.BeginTransactionAsync();
-
             var report = await reportRepo.Entities
                 .Include(r => r.Citizen)
                 .Include(r => r.Wastes)
@@ -99,14 +97,18 @@ namespace Application.Services
 
             if (report == null)
                 throw new Exception("WasteReport not found.");
+
             if (report.Status != WasteReportStatus.Verified)
                 throw new Exception("WasteReport is not verified yet.");
+
             if (report.IsPointCalculated)
                 throw new Exception("Points have already been calculated for this report.");
+
             if (report.Wastes == null || !report.Wastes.Any())
                 throw new Exception("WasteReport does not contain any waste items.");
 
             var citizenPoint = await pointRepo.Entities
+                .Include(p => p.Citizen)
                 .FirstOrDefaultAsync(p => p.CitizenId == report.CitizenId);
 
             if (citizenPoint == null)
@@ -116,11 +118,14 @@ namespace Application.Services
                     CitizenId = report.CitizenId,
                     TotalPoints = 0
                 };
+
                 await pointRepo.InsertAsync(citizenPoint);
             }
 
             int totalPointsToAdd = 0;
-            var rules = await ruleRepo.Entities.Where(r => r.IsActive).ToListAsync();
+            var rules = await ruleRepo.Entities
+                .Where(r => r.IsActive)
+                .ToListAsync();
 
             foreach (var waste in report.Wastes)
             {
@@ -128,7 +133,8 @@ namespace Application.Services
                     continue;
 
                 var rule = rules.FirstOrDefault(r => r.WasteTypeId == waste.WasteTypeId);
-                if (rule == null) continue;
+                if (rule == null)
+                    continue;
 
                 int itemPoints = rule.BasePoint * waste.Quantity;
                 totalPointsToAdd += itemPoints;
