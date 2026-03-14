@@ -232,26 +232,30 @@ namespace Application.Services
             entity.ReviewNote = dto.ReviewNote;
             entity.LastUpdatedTime = DateTimeOffset.UtcNow;
 
+            Guid? wasteReportId = null;
+
             if (newStatus == ProofReviewStatus.Approved)
             {
                 entity.Assignment.Request.Status = CollectionRequestStatus.Completed;
                 entity.Assignment.Request.LastUpdatedTime = DateTimeOffset.UtcNow;
 
                 var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport;
-                if (wasteReport != null)
-                {
-                    wasteReport.Status = WasteReportStatus.Verified;
-                    wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
-                }
+                if (wasteReport == null)
+                    throw new Exception("WasteReport not found.");
 
-                // ⭐ AWARD POINT HERE
-                await _citizenPointService.AwardPointsForVerifiedReportAsync(
-                    wasteReport!.Id
-                );
+                wasteReport.Status = WasteReportStatus.Verified;
+                wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+                wasteReportId = wasteReport.Id;
             }
 
             repo.Update(entity);
             await _uow.SaveAsync();
+
+            if (newStatus == ProofReviewStatus.Approved && wasteReportId.HasValue)
+            {
+                await _citizenPointService.AwardPointsForVerifiedReportAsync(wasteReportId.Value);
+            }
 
             return true;
         }

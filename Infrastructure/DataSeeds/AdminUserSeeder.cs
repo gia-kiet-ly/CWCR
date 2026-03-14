@@ -15,13 +15,6 @@ namespace Infrastructure.DataSeeds
                 password: "String@123",
                 role: SystemRoles.Administrator);
 
-            // ================= COLLECTOR =================
-            await EnsureUserAsync(userManager,
-                email: "collector@system.com",
-                fullName: "Default Collector",
-                password: "String@123",
-                role: SystemRoles.Collector);
-
             // ================= ENTERPRISE =================
             await EnsureUserAsync(userManager,
                 email: "enterprise@system.com",
