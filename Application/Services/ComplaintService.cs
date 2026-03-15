@@ -24,7 +24,6 @@ namespace Application.Services
             if (!Enum.TryParse<ComplaintType>(dto.Type, true, out var type))
                 throw new Exception("Invalid complaint type");
 
-            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
             var complaintRepo = _unitOfWork.GetRepository<Complaint>();
 
             var report = await reportRepo.GetByIdAsync(dto.ReportId);
