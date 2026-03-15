@@ -73,14 +73,14 @@ namespace API.Middleware
         {
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-
             var response = new
             {
                 code = "INTERNAL_ERROR",
                 message = "An unexpected error occurred.",
-                detail = ex.Message
+                detail = ex.Message,
+                inner = ex.InnerException?.Message,
+                inner2 = ex.InnerException?.InnerException?.Message // EF thường lồng 2 lớp
             };
-
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
     }

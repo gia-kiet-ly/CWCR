@@ -180,10 +180,13 @@ namespace Application.Services
             }).ToList();
         }
 
+
         // ================= UPDATE =================
         public async Task<WasteReportResponseDto> UpdateAsync(Guid id, UpdateWasteReportDto dto)
         {
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
+            var wasteRepo = _unitOfWork.GetRepository<WasteReportWaste>();
+            var imageRepo = _unitOfWork.GetRepository<WasteImage>();
             var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
 
             // 1. Find report
@@ -193,6 +196,8 @@ namespace Application.Services
             if (report == null)
                 throw new Exception("WasteReport not found.");
 
+            Console.WriteLine($"[UPDATE] Report found. Status={report.Status}, Id={report.Id}");
+
             // 2. Check status
             if (report.Status == WasteReportStatus.Disputed)
                 throw new Exception("This report is under dispute and cannot be modified.");
@@ -200,18 +205,19 @@ namespace Application.Services
             if (report.Status != WasteReportStatus.NoEnterpriseAvailable &&
                 report.Status != WasteReportStatus.Rejected)
             {
-                throw new Exception("This report cannot be modified.");
+                throw new Exception($"[BLOCKED] This report cannot be modified. Current status={report.Status}");
             }
 
             // 3. Get last reject request
             var lastReject = await requestRepo.NoTrackingEntities
                 .Include(x => x.WasteReportWaste)
-                .ThenInclude(x => x.WasteReport)
                 .Where(x =>
                     x.WasteReportWaste.WasteReportId == id &&
                     x.Status == CollectionRequestStatus.Rejected)
                 .OrderByDescending(x => x.CreatedTime)
                 .FirstOrDefaultAsync();
+
+            Console.WriteLine($"[UPDATE] lastReject={lastReject?.Id}, RejectReason={lastReject?.RejectReason}");
 
             if (lastReject == null)
                 throw new Exception("Reject information not found.");
@@ -220,7 +226,7 @@ namespace Application.Services
             if (lastReject.RejectReason != RejectReason.WrongWasteType &&
                 lastReject.RejectReason != RejectReason.ImageNotClear)
             {
-                throw new Exception("This reject reason does not allow editing.");
+                throw new Exception($"[BLOCKED] RejectReason={lastReject.RejectReason} does not allow editing.");
             }
 
             // 5. Update report info
@@ -238,34 +244,166 @@ namespace Application.Services
 
             reportRepo.Update(report);
 
-            // 6. Soft delete old requests
-            var oldRequests = await requestRepo.Entities
+            Console.WriteLine("[UPDATE] Saving report...");
+            try
+            {
+                await _unitOfWork.SaveAsync();
+                Console.WriteLine("[UPDATE] Report saved OK.");
+            }
+            catch (DbUpdateException ex)
+            {
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                throw new Exception($"[SAVE FAILED - Step 5 Report] {inner}");
+            }
+
+            // 6. Update waste items
+            if (dto.Wastes != null && dto.Wastes.Any())
+            {
+                var wastes = await wasteRepo.Entities
+                    .Where(x => x.WasteReportId == id && !x.IsDeleted)
+                    .ToListAsync();
+
+                Console.WriteLine($"[UPDATE] Found {wastes.Count} waste items in DB.");
+
+                foreach (var waste in wastes)
+                {
+                    var dtoWaste = dto.Wastes
+                        .FirstOrDefault(x => x.WasteTypeId == waste.WasteTypeId);
+
+                    if (dtoWaste == null)
+                    {
+                        Console.WriteLine($"[UPDATE] No matching dtoWaste for WasteTypeId={waste.WasteTypeId}, skip.");
+                        continue;
+                    }
+
+                    Console.WriteLine($"[UPDATE] Updating waste Id={waste.Id}, WasteTypeId={waste.WasteTypeId}");
+
+                    waste.Quantity = dtoWaste.Quantity;
+                    waste.Note = dtoWaste.Note;
+                    wasteRepo.Update(waste);
+
+                    // 7. Update images
+                    if (dtoWaste.Images != null)
+                    {
+                        var oldImages = await imageRepo.Entities
+                            .Where(x => x.WasteReportWasteId == waste.Id && !x.IsDeleted)
+                            .ToListAsync();
+
+                        Console.WriteLine($"[UPDATE] Soft deleting {oldImages.Count} old images for WasteId={waste.Id}");
+
+                        foreach (var img in oldImages)
+                        {
+                            img.IsDeleted = true;
+                            img.DeletedTime = DateTimeOffset.UtcNow;
+                            imageRepo.Update(img);
+                        }
+
+                        try
+                        {
+                            await _unitOfWork.SaveAsync();
+                            Console.WriteLine("[UPDATE] Old images soft deleted OK.");
+                        }
+                        catch (DbUpdateException ex)
+                        {
+                            var inner = ex.InnerException?.Message ?? ex.Message;
+                            throw new Exception($"[SAVE FAILED - Step 7 Delete Images] WasteId={waste.Id} | {inner}");
+                        }
+
+                        Console.WriteLine($"[UPDATE] Inserting {dtoWaste.Images.Count} new images...");
+
+                        foreach (var url in dtoWaste.Images)
+                        {
+                            if (string.IsNullOrWhiteSpace(url))
+                            {
+                                Console.WriteLine("[UPDATE] Skipping empty image URL.");
+                                continue;
+                            }
+
+                            Console.WriteLine($"[UPDATE] Inserting image URL={url}");
+
+                            await imageRepo.InsertAsync(new WasteImage
+                            {
+                                WasteReportWasteId = waste.Id,
+                                ImageUrl = url,
+                                PublicId = ExtractPublicId(url)
+                            });
+                        }
+
+                        try
+                        {
+                            await _unitOfWork.SaveAsync();
+                            Console.WriteLine("[UPDATE] New images inserted OK.");
+                        }
+                        catch (DbUpdateException ex)
+                        {
+                            var inner = ex.InnerException?.Message ?? ex.Message;
+                            throw new Exception($"[SAVE FAILED - Step 7 Insert Images] WasteId={waste.Id} | {inner}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[UPDATE] No images in dto for WasteId={waste.Id}, saving waste only.");
+                        try
+                        {
+                            await _unitOfWork.SaveAsync();
+                            Console.WriteLine("[UPDATE] Waste item saved OK.");
+                        }
+                        catch (DbUpdateException ex)
+                        {
+                            var inner = ex.InnerException?.Message ?? ex.Message;
+                            throw new Exception($"[SAVE FAILED - Step 6 Waste] WasteId={waste.Id} | {inner}");
+                        }
+                    }
+                }
+            }
+
+            // 8. Soft delete old requests
+            Console.WriteLine("[UPDATE] Loading old requests to soft delete...");
+
+            var oldRequestIds = await requestRepo.NoTrackingEntities
                 .Include(x => x.WasteReportWaste)
                 .Where(x =>
                     x.WasteReportWaste.WasteReportId == id &&
                     !x.IsDeleted)
+                .Select(x => x.Id)
                 .ToListAsync();
 
-            foreach (var r in oldRequests)
+            Console.WriteLine($"[UPDATE] Found {oldRequestIds.Count} old requests to soft delete.");
+
+            if (oldRequestIds.Any())
             {
-                r.IsDeleted = true;
-                requestRepo.Update(r);
+                var oldRequests = await requestRepo.Entities
+                    .Where(x => oldRequestIds.Contains(x.Id))
+                    .ToListAsync();
+
+                foreach (var r in oldRequests)
+                {
+                    r.IsDeleted = true;
+                    r.DeletedTime = DateTimeOffset.UtcNow;
+                    requestRepo.Update(r);
+                }
+
+                try
+                {
+                    await _unitOfWork.SaveAsync();
+                    Console.WriteLine("[UPDATE] Old requests soft deleted OK.");
+                }
+                catch (DbUpdateException ex)
+                {
+                    var inner = ex.InnerException?.Message ?? ex.Message;
+                    throw new Exception($"[SAVE FAILED - Step 8 Requests] {inner}");
+                }
             }
 
-            await _unitOfWork.SaveAsync();
-
-            // 7. Redispatch enterprise
+            // 9. Redispatch
+            Console.WriteLine("[UPDATE] Calling CreateTop1RequestsForReportAsync...");
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
+            Console.WriteLine("[UPDATE] Redispatch OK.");
 
-            // 8. Return updated report
-            var result = await GetByIdAsync(id);
-
-            if (result == null)
-                throw new Exception("Update failed.");
-
-            return result;
+            // 10. Return
+            return await GetByIdAsync(id)
+                ?? throw new Exception("Update failed.");
         }
-
         // ================= GET BY ID =================
         public async Task<WasteReportResponseDto?> GetByIdAsync(Guid id)
         {
