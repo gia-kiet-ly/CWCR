@@ -9,10 +9,14 @@ namespace Application.Services
     public class DisputeResolutionService : IDisputeResolutionService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationService _notificationService;
 
-        public DisputeResolutionService(IUnitOfWork unitOfWork)
+        public DisputeResolutionService(
+            IUnitOfWork unitOfWork,
+            INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
+            _notificationService = notificationService;
         }
 
         // =====================================================
@@ -47,6 +51,14 @@ namespace Application.Services
             await complaintRepo.UpdateAsync(complaint);
 
             await _unitOfWork.SaveAsync();
+
+            // ================= Notification =================
+            await _notificationService.CreateAsync(
+                complaint.CreatedBy.Value,
+                "Dispute resolved",
+                "Your complaint has been reviewed and resolved by the administrator.",
+                complaint.Id
+            );
 
             return MapToDto(resolution);
         }

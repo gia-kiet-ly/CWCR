@@ -13,15 +13,18 @@ namespace Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRegionCodeResolver _regionCodeResolver;
         private readonly ICollectionRequestService _collectionRequestService;
+        private readonly INotificationService _notificationService;
 
         public WasteReportService(
             IUnitOfWork unitOfWork,
             IRegionCodeResolver regionCodeResolver,
-            ICollectionRequestService collectionRequestService)
+            ICollectionRequestService collectionRequestService,
+            INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _regionCodeResolver = regionCodeResolver;
             _collectionRequestService = collectionRequestService;
+            _notificationService = notificationService;
         }
 
         // ================= CREATE =================
@@ -104,9 +107,16 @@ namespace Application.Services
 
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
 
+            await _notificationService.CreateAsync(
+                citizenId,
+                "WasteReportCreated",
+                report.Id.ToString()
+            );
+
             return await GetByIdAsync(report.Id)
                    ?? throw new Exception("Create failed.");
         }
+
         // ================= REDISPATCH =================
         public async Task RedispatchAsync(Guid reportId)
         {
@@ -135,6 +145,7 @@ namespace Application.Services
 
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
         }
+
         // ================= REJECT HISTORY =================
         public async Task<List<RejectHistoryDto>> GetRejectHistoryAsync(Guid reportId, Guid citizenId)
         {
@@ -167,10 +178,9 @@ namespace Application.Services
                 CreatedTime = x.CreatedTime
             }).ToList();
         }
+
         // ================= UPDATE =================
-        public async Task<WasteReportResponseDto> UpdateAsync(
-            Guid id,
-            UpdateWasteReportDto dto)
+        public async Task<WasteReportResponseDto> UpdateAsync(Guid id, UpdateWasteReportDto dto)
         {
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
             var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
@@ -193,14 +203,12 @@ namespace Application.Services
             if (report == null || report.IsDeleted)
                 throw new Exception("WasteReport not found.");
 
-            // ❌ Không cho sửa nếu đang dispute
             if (report.Status == WasteReportStatus.Disputed)
                 throw new Exception("This report is under dispute and cannot be modified.");
 
             if (report.Status != WasteReportStatus.Rejected)
                 throw new Exception("This report cannot be modified.");
 
-            // lấy reject gần nhất
             var lastReject = await requestRepo.NoTrackingEntities
                 .Include(x => x.WasteReportWaste)
                 .Where(x =>
@@ -212,7 +220,6 @@ namespace Application.Services
             if (lastReject == null)
                 throw new Exception("Reject information not found.");
 
-            // ❌ chỉ cho edit nếu reason hợp lệ
             if (lastReject.RejectReason != RejectReason.WrongWasteType &&
                 lastReject.RejectReason != RejectReason.ImageNotClear)
             {
@@ -228,14 +235,12 @@ namespace Application.Services
             if (dto.Longitude.HasValue)
                 report.Longitude = dto.Longitude;
 
-            // reset status để dispatch lại
             report.Status = WasteReportStatus.Pending;
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
             reportRepo.Update(report);
             await _unitOfWork.SaveAsync();
 
-            // dispatch lại enterprise
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
 
             return await GetByIdAsync(id)

@@ -1,4 +1,5 @@
-﻿using Application.Contract.DTOs;
+﻿using Application.Constants;
+using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Application.Contract.Paggings;
@@ -12,10 +13,14 @@ namespace Application.Services
     public class CollectorAssignmentService : ICollectorAssignmentService
     {
         private readonly IUnitOfWork _uow;
+        private readonly INotificationService _notificationService;
 
-        public CollectorAssignmentService(IUnitOfWork uow)
+        public CollectorAssignmentService(
+            IUnitOfWork uow,
+            INotificationService notificationService)
         {
             _uow = uow;
+            _notificationService = notificationService;
         }
 
         // ================= ENTERPRISE: CREATE ASSIGNMENT =================
@@ -25,7 +30,6 @@ namespace Application.Services
             var assignmentRepo = _uow.GetRepository<CollectorAssignment>();
             var collectorProfileRepo = _uow.GetRepository<CollectorProfile>();
 
-            // 1) Request ph?i thu?c enterprise
             var request = await requestRepo.Entities
                 .Include(r => r.WasteReportWaste)
                     .ThenInclude(w => w.WasteReport)
@@ -37,18 +41,15 @@ namespace Application.Services
             if (request == null)
                 throw new Exception("Request not found or not belong to enterprise.");
 
-            // 2) Ch? assign khi request dã Accepted
             if (request.Status != CollectionRequestStatus.Accepted)
                 throw new Exception("Only accepted request can be assigned.");
 
-            // 3) Không cho assign trùng
             var existedAssignment = await assignmentRepo.NoTrackingEntities
                 .AnyAsync(a => a.RequestId == dto.RequestId && !a.IsDeleted);
 
             if (existedAssignment)
                 throw new Exception("Request already has an assignment.");
 
-            // 4) Collector ph?i là user thu?c enterprise này thông qua CollectorProfile
             var collectorProfile = await collectorProfileRepo.NoTrackingEntities
                 .FirstOrDefaultAsync(c =>
                     c.CollectorId == dto.CollectorId &&
@@ -62,7 +63,7 @@ namespace Application.Services
             var entity = new CollectorAssignment
             {
                 RequestId = dto.RequestId,
-                CollectorId = dto.CollectorId, // ApplicationUser.Id
+                CollectorId = dto.CollectorId,
                 Status = AssignmentStatus.Assigned
             };
 
@@ -72,9 +73,18 @@ namespace Application.Services
             request.LastUpdatedTime = DateTimeOffset.UtcNow;
             request.WasteReportWaste.WasteReport.Status = WasteReportStatus.Assigned;
             request.WasteReportWaste.WasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
+
             requestRepo.Update(request);
 
             await _uow.SaveAsync();
+
+            // ================= NOTIFICATION =================
+            await _notificationService.CreateAsync(
+                dto.CollectorId,
+                NotificationConstants.Types.COLLECTOR_ASSIGNED,
+                NotificationConstants.ReferenceTypes.COLLECTION_REQUEST,
+                dto.RequestId
+            );
 
             return await GetByIdEnterpriseAsync(enterpriseId, entity.Id)
                    ?? throw new Exception("Create assignment failed.");
@@ -126,9 +136,7 @@ namespace Application.Services
                 query = query.Where(x => x.CollectorId == filter.CollectorId.Value);
 
             if (filter.Status.HasValue)
-            {
                 query = query.Where(x => x.Status == filter.Status.Value);
-            }
 
             var total = await query.CountAsync();
             var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
@@ -184,9 +192,7 @@ namespace Application.Services
                 .Where(a => !a.IsDeleted && a.CollectorId == collectorUserId);
 
             if (filter.Status.HasValue)
-            {
                 query = query.Where(x => x.Status == filter.Status.Value);
-            }
 
             if (filter.RequestId.HasValue)
                 query = query.Where(x => x.RequestId == filter.RequestId.Value);
@@ -244,6 +250,7 @@ namespace Application.Services
                     AssignmentStatus.Collected => WasteReportStatus.Collected,
                     _ => entity.Request.WasteReportWaste.WasteReport.Status
                 };
+
                 entity.Request.WasteReportWaste.WasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
             }
 
@@ -281,6 +288,7 @@ namespace Application.Services
                 WasteTypeId = item?.WasteTypeId ?? Guid.Empty,
                 WasteTypeName = item?.WasteType?.Name,
                 Note = item?.Note,
+
                 ImageUrls = item?.Images?
                     .Where(i => !i.IsDeleted)
                     .Select(i => i.ImageUrl)

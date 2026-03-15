@@ -1,4 +1,5 @@
-﻿using Application.Contract.DTOs;
+﻿using Application.Constants;
+using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Core.Enum;
@@ -10,10 +11,14 @@ namespace Application.Services
     public class CollectionRequestService : ICollectionRequestService
     {
         private readonly IUnitOfWork _uow;
+        private readonly INotificationService _notificationService;
 
-        public CollectionRequestService(IUnitOfWork uow)
+        public CollectionRequestService(
+            IUnitOfWork uow,
+            INotificationService notificationService)
         {
             _uow = uow;
+            _notificationService = notificationService;
         }
 
         // =============================
@@ -178,7 +183,7 @@ namespace Application.Services
         }
 
         // =============================
-        // ACCEPT (Race Condition Safe)
+        // ACCEPT
         // =============================
         public async Task<bool> AcceptAsync(Guid enterpriseId, Guid requestId)
         {
@@ -187,6 +192,7 @@ namespace Application.Services
 
             var entity = await repo.Entities
                 .Include(x => x.WasteReportWaste)
+                    .ThenInclude(w => w.WasteReport)
                 .FirstOrDefaultAsync(x =>
                     x.Id == requestId &&
                     !x.IsDeleted &&
@@ -212,6 +218,16 @@ namespace Application.Services
             }
 
             await _uow.SaveAsync();
+
+            // Notification
+            var citizenId = entity.WasteReportWaste.WasteReport.CitizenId;
+
+            await _notificationService.CreateAsync(
+                citizenId,
+                NotificationConstants.Types.COLLECTION_ACCEPTED,
+                NotificationConstants.ReferenceTypes.COLLECTION_REQUEST,
+                entity.Id
+            );
 
             return true;
         }
@@ -243,6 +259,16 @@ namespace Application.Services
             repo.Update(entity);
             await _uow.SaveAsync();
 
+            // Notification reject
+            var citizenId = entity.WasteReportWaste.WasteReport.CitizenId;
+
+            await _notificationService.CreateAsync(
+                citizenId,
+                NotificationConstants.Types.COLLECTION_REJECTED,
+                NotificationConstants.ReferenceTypes.COLLECTION_REQUEST,
+                entity.Id
+            );
+
             var wasteItemId = entity.WasteReportWasteId;
 
             var rejectCount = await repo.NoTrackingEntities
@@ -261,10 +287,17 @@ namespace Application.Services
                 reportRepo.Update(report);
                 await _uow.SaveAsync();
 
+                // Notification no enterprise
+                await _notificationService.CreateAsync(
+                    report.CitizenId,
+                    NotificationConstants.Types.WASTE_REPORT_NO_ENTERPRISE,
+                    NotificationConstants.ReferenceTypes.WASTE_REPORT,
+                    report.Id
+                );
+
                 return true;
             }
 
-            // Nếu reject vì sai loại rác hoặc ảnh không rõ → chờ citizen sửa
             if (reason == RejectReason.WrongWasteType ||
                 reason == RejectReason.ImageNotClear)
             {
@@ -279,7 +312,6 @@ namespace Application.Services
                 return true;
             }
 
-            // Các reason khác → dispatch enterprise tiếp theo
             var nextEnterprise = await FindBestEnterpriseTop1Async(
                 wasteItemId,
                 entity.WasteReportWaste.WasteReport.RegionCode,
