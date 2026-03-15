@@ -1,4 +1,5 @@
-﻿using Application.Contract.DTOs;
+﻿using Application.Constants;
+using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Application.Contract.Paggings;
@@ -64,9 +65,9 @@ namespace Application.Services
             {
                 await _notificationService.CreateAsync(
                     assignmentFull.Request.EnterpriseId,
-                    "Collection proof uploaded",
-                    "A collector has uploaded proof for a completed collection.",
-                    dto.AssignmentId
+                    NotificationConstants.Types.PROOF_UPLOADED,
+                    NotificationConstants.ReferenceTypes.COLLECTION_PROOF,
+                    entity.Id
                 );
             }
 
@@ -283,10 +284,9 @@ namespace Application.Services
             // ================= Notification: Collector =================
             await _notificationService.CreateAsync(
                 entity.Assignment.CollectorId,
-                "Collection proof reviewed",
-                $"Your proof has been {newStatus}.",
+                NotificationConstants.Types.PROOF_VERIFIED,
+                NotificationConstants.ReferenceTypes.COLLECTION_PROOF,
                 entity.Id
-            
             );
 
             if (newStatus == ProofReviewStatus.Approved && wasteReportId.HasValue)
@@ -299,8 +299,8 @@ namespace Application.Services
                 {
                     await _notificationService.CreateAsync(
                         wasteReport.CitizenId,
-                        "Waste report verified",
-                        "Your waste report has been successfully collected and verified.",
+                        NotificationConstants.Types.PROOF_VERIFIED,
+                        NotificationConstants.ReferenceTypes.WASTE_REPORT,
                         wasteReport.Id
                     );
                 }

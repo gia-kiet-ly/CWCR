@@ -1,4 +1,5 @@
-﻿using Application.Contract.DTOs;
+﻿using Application.Constants;
+using Application.Contract.DTOs;
 using Application.Contract.Interfaces;
 using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
@@ -109,7 +110,7 @@ namespace Application.Services
 
             await _notificationService.CreateAsync(
                 citizenId,
-                "WasteReportCreated",
+                NotificationConstants.Types.WASTE_REPORT_CREATED,
                 report.Id.ToString()
             );
 

@@ -1,4 +1,5 @@
-﻿using Application.Contract.DTOs;
+﻿using Application.Constants;
+using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Core.Enum;
@@ -23,13 +24,14 @@ namespace Application.Services
         // CREATE RESOLUTION
         // =====================================================
         public async Task<DisputeResolutionResponseDto> CreateAsync(
-            Guid handlerId,
-            CreateDisputeResolutionDto dto)
+    Guid handlerId,
+    CreateDisputeResolutionDto dto)
         {
             var complaintRepo = _unitOfWork.GetRepository<Complaint>();
             var resolutionRepo = _unitOfWork.GetRepository<DisputeResolution>();
 
             var complaint = await complaintRepo.GetByIdAsync(dto.ComplaintId);
+
             if (complaint == null)
                 throw new Exception("Complaint not found.");
 
@@ -37,12 +39,17 @@ namespace Application.Services
                 complaint.Status == ComplaintStatus.Rejected)
                 throw new Exception("Complaint already closed.");
 
+            if (!complaint.CreatedBy.HasValue)
+                throw new Exception("Complaint creator not found.");
+
+            var now = DateTimeOffset.UtcNow;
+
             var resolution = new DisputeResolution
             {
                 ComplaintId = dto.ComplaintId,
                 HandlerId = handlerId,
                 ResolutionNote = dto.ResolutionNote,
-                ResolvedAt = DateTimeOffset.UtcNow
+                ResolvedAt = now
             };
 
             await resolutionRepo.InsertAsync(resolution);
@@ -52,12 +59,10 @@ namespace Application.Services
 
             await _unitOfWork.SaveAsync();
 
-            // ================= Notification =================
             await _notificationService.CreateAsync(
                 complaint.CreatedBy.Value,
-                "Dispute resolved",
-                "Your complaint has been reviewed and resolved by the administrator.",
-                complaint.Id
+                NotificationConstants.Types.DISPUTE_RESOLVED,
+                complaint.Id.ToString()
             );
 
             return MapToDto(resolution);
