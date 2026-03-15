@@ -40,6 +40,7 @@ namespace Application
             services.AddScoped<IWardService, WardService>();
             services.AddScoped<ICollectorService, CollectorService>();
             services.AddScoped<IPointRuleService, PointRuleService>();
+            services.AddScoped<INotificationService, NotificationService>();
             return services;
         }
     }

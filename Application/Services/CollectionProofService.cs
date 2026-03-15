@@ -13,10 +13,16 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly ICitizenPointService _citizenPointService;
-        public CollectionProofService(IUnitOfWork uow, ICitizenPointService citizenPointService)
+        private readonly INotificationService _notificationService;
+
+        public CollectionProofService(
+            IUnitOfWork uow,
+            ICitizenPointService citizenPointService,
+            INotificationService notificationService)
         {
             _uow = uow;
             _citizenPointService = citizenPointService;
+            _notificationService = notificationService;
         }
 
         // ================= COLLECTOR: CREATE =================
@@ -48,6 +54,21 @@ namespace Application.Services
 
             await proofRepo.InsertAsync(entity);
             await _uow.SaveAsync();
+
+            // ================= Notification: Enterprise =================
+            var assignmentFull = await assignmentRepo.Entities
+                .Include(a => a.Request)
+                .FirstOrDefaultAsync(a => a.Id == dto.AssignmentId);
+
+            if (assignmentFull?.Request != null)
+            {
+                await _notificationService.CreateAsync(
+                    assignmentFull.Request.EnterpriseId,
+                    "Collection proof uploaded",
+                    "A collector has uploaded proof for a completed collection.",
+                    dto.AssignmentId
+                );
+            }
 
             var created = await proofRepo.NoTrackingEntities
                 .Include(p => p.Assignment)
@@ -161,7 +182,6 @@ namespace Application.Services
 
             return Map(entity);
         }
-
         // ================= ENTERPRISE: GET PAGED =================
         public async Task<PaginatedList<CollectionProofDto>> GetPagedEnterpriseAsync(Guid enterpriseId, CollectionProofFilterDto filter)
         {
@@ -180,7 +200,8 @@ namespace Application.Services
                     .ThenInclude(a => a.Request)
                         .ThenInclude(r => r.WasteReportWaste)
                             .ThenInclude(w => w.WasteReport)
-                .Where(p => !p.IsDeleted && p.Assignment.Request.EnterpriseId == enterpriseId);
+                .Where(p => !p.IsDeleted &&
+                            p.Assignment.Request.EnterpriseId == enterpriseId);
 
             if (filter.AssignmentId.HasValue)
                 query = query.Where(x => x.AssignmentId == filter.AssignmentId.Value);
@@ -189,7 +210,8 @@ namespace Application.Services
                 query = query.Where(x => x.ReviewStatus == filter.ReviewStatus.Value);
 
             var total = await query.CountAsync();
-            var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
+            var page = PaginationHelper.ValidateAndAdjustPageNumber(
+                filter.PageNumber, total, filter.PageSize);
 
             var list = await query
                 .OrderByDescending(x => x.CreatedTime)
@@ -198,7 +220,13 @@ namespace Application.Services
                 .ToListAsync();
 
             var dtos = list.Select(Map).ToList();
-            return new PaginatedList<CollectionProofDto>(dtos, total, page, filter.PageSize);
+
+            return new PaginatedList<CollectionProofDto>(
+                dtos,
+                total,
+                page,
+                filter.PageSize
+            );
         }
 
         // ================= ENTERPRISE: REVIEW =================
@@ -252,9 +280,30 @@ namespace Application.Services
             repo.Update(entity);
             await _uow.SaveAsync();
 
+            // ================= Notification: Collector =================
+            await _notificationService.CreateAsync(
+                entity.Assignment.CollectorId,
+                "Collection proof reviewed",
+                $"Your proof has been {newStatus}.",
+                entity.Id
+            
+            );
+
             if (newStatus == ProofReviewStatus.Approved && wasteReportId.HasValue)
             {
                 await _citizenPointService.AwardPointsForVerifiedReportAsync(wasteReportId.Value);
+
+                var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport;
+
+                if (wasteReport != null)
+                {
+                    await _notificationService.CreateAsync(
+                        wasteReport.CitizenId,
+                        "Waste report verified",
+                        "Your waste report has been successfully collected and verified.",
+                        wasteReport.Id
+                    );
+                }
             }
 
             return true;
