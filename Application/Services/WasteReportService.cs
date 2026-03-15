@@ -186,32 +186,27 @@ namespace Application.Services
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
             var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
 
-            var oldRequests = await requestRepo.Entities
-                .Include(x => x.WasteReportWaste)
-                .Where(x => x.WasteReportWaste.WasteReportId == id && !x.IsDeleted)
-                .ToListAsync();
+            // 1. Find report
+            var report = await reportRepo.Entities
+                .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
 
-            foreach (var r in oldRequests)
-            {
-                r.IsDeleted = true;
-                requestRepo.Update(r);
-            }
-
-            await _unitOfWork.SaveAsync();
-
-            var report = await reportRepo.GetByIdAsync(id);
-
-            if (report == null || report.IsDeleted)
+            if (report == null)
                 throw new Exception("WasteReport not found.");
 
+            // 2. Check status
             if (report.Status == WasteReportStatus.Disputed)
                 throw new Exception("This report is under dispute and cannot be modified.");
 
-            if (report.Status != WasteReportStatus.Rejected)
+            if (report.Status != WasteReportStatus.NoEnterpriseAvailable &&
+                report.Status != WasteReportStatus.Rejected)
+            {
                 throw new Exception("This report cannot be modified.");
+            }
 
+            // 3. Get last reject request
             var lastReject = await requestRepo.NoTrackingEntities
                 .Include(x => x.WasteReportWaste)
+                .ThenInclude(x => x.WasteReport)
                 .Where(x =>
                     x.WasteReportWaste.WasteReportId == id &&
                     x.Status == CollectionRequestStatus.Rejected)
@@ -221,12 +216,14 @@ namespace Application.Services
             if (lastReject == null)
                 throw new Exception("Reject information not found.");
 
+            // 4. Check reject reason
             if (lastReject.RejectReason != RejectReason.WrongWasteType &&
                 lastReject.RejectReason != RejectReason.ImageNotClear)
             {
                 throw new Exception("This reject reason does not allow editing.");
             }
 
+            // 5. Update report info
             if (!string.IsNullOrWhiteSpace(dto.Description))
                 report.Description = dto.Description;
 
@@ -240,12 +237,33 @@ namespace Application.Services
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
             reportRepo.Update(report);
+
+            // 6. Soft delete old requests
+            var oldRequests = await requestRepo.Entities
+                .Include(x => x.WasteReportWaste)
+                .Where(x =>
+                    x.WasteReportWaste.WasteReportId == id &&
+                    !x.IsDeleted)
+                .ToListAsync();
+
+            foreach (var r in oldRequests)
+            {
+                r.IsDeleted = true;
+                requestRepo.Update(r);
+            }
+
             await _unitOfWork.SaveAsync();
 
+            // 7. Redispatch enterprise
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
 
-            return await GetByIdAsync(id)
-                   ?? throw new Exception("Update failed.");
+            // 8. Return updated report
+            var result = await GetByIdAsync(id);
+
+            if (result == null)
+                throw new Exception("Update failed.");
+
+            return result;
         }
 
         // ================= GET BY ID =================
