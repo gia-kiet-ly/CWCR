@@ -119,6 +119,41 @@ namespace Application.Services
 
             return MapToDto(complaint);
         }
+        public async Task<PagedComplaintDto> GetEnterpriseComplaintsAsync(
+         Guid userId,  // đây thực ra là UserId, không phải EnterpriseId
+         ComplaintFilterDto filter)
+        {
+            var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+            var enterprise = await enterpriseRepo.NoTrackingEntities
+                .FirstOrDefaultAsync(e => e.UserId == userId && !e.IsDeleted);
+
+            if (enterprise == null)
+                throw new Exception("Enterprise not found");
+
+            var repo = _unitOfWork.GetRepository<Complaint>();
+
+            var query = repo.NoTrackingEntities
+                .Include(x => x.CollectionRequest)
+                .Where(x =>
+                    !x.IsDeleted &&
+                    x.CollectionRequestId != null &&
+                    x.CollectionRequest!.EnterpriseId == enterprise.Id);  // dùng enterprise.Id thật
+
+            query = ApplyFilter(query, filter);
+
+            var pagedData = await repo.GetPagging(
+                query.OrderByDescending(x => x.CreatedTime),
+                filter.PageNumber,
+                filter.PageSize);
+
+            return new PagedComplaintDto
+            {
+                TotalCount = pagedData.TotalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize,
+                Items = pagedData.Items.Select(MapToDto).ToList()
+            };
+        }
 
         // ================= UPDATE STATUS (ADMIN) =================
         public async Task<ComplaintResponseDto> UpdateStatusAsync(
