@@ -575,12 +575,12 @@ namespace Infrastructure.DbContext
                     .HasForeignKey(r => r.ComplaintId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasOne(r => r.Handler)
+                entity.HasOne(r => r.Enterprise)
                     .WithMany()
-                    .HasForeignKey(r => r.HandlerId)
+                    .HasForeignKey(r => r.EnterpriseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.Property(r => r.ResolutionNote)
+                entity.Property(r => r.ResponseNote)
                     .IsRequired()
                     .HasMaxLength(1000);
             });

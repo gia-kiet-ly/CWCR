@@ -9,11 +9,11 @@ namespace Application.Contract.Services
         // =============================
 
         Task<ComplaintResponseDto> CreateAsync(
-            Guid currentUserId,
+            Guid complainantId,
             CreateComplaintDto dto);
 
         Task<PagedComplaintDto> GetMyComplaintsAsync(
-            Guid currentUserId,
+            Guid complainantId,
             ComplaintFilterDto filter);
 
         Task<ComplaintResponseDto?> GetByIdAsync(
@@ -23,7 +23,7 @@ namespace Application.Contract.Services
 
         Task<bool> DeleteAsync(
             Guid id,
-            Guid currentUserId);
+            Guid complainantId);
 
         // =============================
         // ADMIN

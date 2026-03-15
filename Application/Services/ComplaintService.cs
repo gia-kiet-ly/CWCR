@@ -1,5 +1,6 @@
 ﻿using Application.Contract.DTOs;
 using Application.Contract.Interfaces.Infrastructure;
+using Application.Contract.Interfaces.Services;
 using Application.Contract.Services;
 using Core.Enum;
 using Domain.Entities;
@@ -15,7 +16,6 @@ namespace Application.Services
         {
             _unitOfWork = unitOfWork;
         }
-
         // ================= CREATE =================
         public async Task<ComplaintResponseDto> CreateAsync(
             Guid complainantId,
@@ -25,8 +25,10 @@ namespace Application.Services
                 throw new Exception("Invalid complaint type");
 
             var complaintRepo = _unitOfWork.GetRepository<Complaint>();
+            var reportRepo = _unitOfWork.GetRepository<WasteReport>();
 
             var report = await reportRepo.GetByIdAsync(dto.ReportId);
+
             if (report == null || report.IsDeleted)
                 throw new Exception("Report not found");
 
@@ -142,9 +144,14 @@ namespace Application.Services
                     break;
 
                 case ComplaintStatus.InReview:
+                    if (status != ComplaintStatus.EnterpriseResponded)
+                        throw new Exception("InReview can only move to EnterpriseResponded");
+                    break;
+
+                case ComplaintStatus.EnterpriseResponded:
                     if (status != ComplaintStatus.Resolved &&
                         status != ComplaintStatus.Rejected)
-                        throw new Exception("InReview can only move to Resolved or Rejected");
+                        throw new Exception("EnterpriseResponded can only move to Resolved or Rejected");
                     break;
 
                 default:
@@ -153,8 +160,6 @@ namespace Application.Services
 
             complaint.Status = status;
             complaint.LastUpdatedTime = DateTimeOffset.UtcNow;
-
-            // nếu entity có field audit
             complaint.LastUpdatedBy = adminId;
 
             repo.Update(complaint);
@@ -230,8 +235,8 @@ namespace Application.Services
                     {
                         Id = r.Id,
                         ComplaintId = r.ComplaintId,
-                        HandlerId = r.HandlerId,
-                        ResolutionNote = r.ResolutionNote,
+                        EnterpriseId = r.EnterpriseId,
+                        ResponseNote = r.ResponseNote,
                         ResolvedAt = r.ResolvedAt,
                         CreatedTime = r.CreatedTime
                     }).ToList()

@@ -11,6 +11,7 @@ namespace Core.Enum
         Open,
         InReview,
         Resolved,
-        Rejected
+        Rejected,
+        EnterpriseResponded
     }
 }

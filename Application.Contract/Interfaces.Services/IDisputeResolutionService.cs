@@ -5,10 +5,10 @@ namespace Application.Contract.Interfaces.Services
     public interface IDisputeResolutionService
     {
         // =============================
-        // ADMIN - CREATE RESOLUTION
+        // ENTERPRISE - CREATE DISPUTE RESPONSE
         // =============================
         Task<DisputeResolutionResponseDto> CreateAsync(
-            Guid adminId,
+            Guid enterpriseId,
             CreateDisputeResolutionDto dto);
 
         // =============================

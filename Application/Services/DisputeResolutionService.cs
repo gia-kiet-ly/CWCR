@@ -21,51 +21,60 @@ namespace Application.Services
         }
 
         // =====================================================
-        // CREATE RESOLUTION
+        // ENTERPRISE - CREATE DISPUTE RESPONSE
         // =====================================================
         public async Task<DisputeResolutionResponseDto> CreateAsync(
-    Guid handlerId,
-    CreateDisputeResolutionDto dto)
+            Guid enterpriseId,
+            CreateDisputeResolutionDto dto)
         {
             var complaintRepo = _unitOfWork.GetRepository<Complaint>();
-            var resolutionRepo = _unitOfWork.GetRepository<DisputeResolution>();
+            var disputeRepo = _unitOfWork.GetRepository<DisputeResolution>();
 
             var complaint = await complaintRepo.GetByIdAsync(dto.ComplaintId);
 
             if (complaint == null)
                 throw new Exception("Complaint not found.");
 
-            if (complaint.Status == ComplaintStatus.Resolved ||
-                complaint.Status == ComplaintStatus.Rejected)
-                throw new Exception("Complaint already closed.");
+            if (complaint.Status != ComplaintStatus.InReview)
+                throw new Exception("Complaint is not under review.");
 
             if (!complaint.CreatedBy.HasValue)
                 throw new Exception("Complaint creator not found.");
 
+            // Prevent enterprise responding multiple times
+            var existed = disputeRepo.Entities.Any(x =>
+                x.ComplaintId == dto.ComplaintId &&
+                x.EnterpriseId == enterpriseId);
+
+            if (existed)
+                throw new Exception("Enterprise already responded to this complaint.");
+
             var now = DateTimeOffset.UtcNow;
 
-            var resolution = new DisputeResolution
+            var dispute = new DisputeResolution
             {
                 ComplaintId = dto.ComplaintId,
-                HandlerId = handlerId,
-                ResolutionNote = dto.ResolutionNote,
+                EnterpriseId = enterpriseId,
+                ResponseNote = dto.ResponseNote,
                 ResolvedAt = now
             };
 
-            await resolutionRepo.InsertAsync(resolution);
+            await disputeRepo.InsertAsync(dispute);
 
-            complaint.Status = ComplaintStatus.Resolved;
+            // Update complaint status
+            complaint.Status = ComplaintStatus.EnterpriseResponded;
             await complaintRepo.UpdateAsync(complaint);
 
             await _unitOfWork.SaveAsync();
 
+            // Notify citizen
             await _notificationService.CreateAsync(
                 complaint.CreatedBy.Value,
                 NotificationConstants.Types.DISPUTE_RESOLVED,
                 complaint.Id.ToString()
             );
 
-            return MapToDto(resolution);
+            return MapToDto(dispute);
         }
 
         // =====================================================
@@ -88,15 +97,15 @@ namespace Application.Services
             var repo = _unitOfWork.GetRepository<DisputeResolution>();
 
             var list = repo.Entities
-                           .Where(x => x.ComplaintId == complaintId)
-                           .OrderByDescending(x => x.ResolvedAt)
-                           .ToList();
+                .Where(x => x.ComplaintId == complaintId)
+                .OrderByDescending(x => x.ResolvedAt)
+                .ToList();
 
             return list.Select(MapToDto).ToList();
         }
 
         // =====================================================
-        // FILTER + PAGING
+        // FILTER + PAGING (ADMIN)
         // =====================================================
         public async Task<PagedDisputeResolutionDto>
             GetPagedAsync(DisputeResolutionFilterDto filter)
@@ -109,9 +118,9 @@ namespace Application.Services
                 query = query.Where(x =>
                     x.ComplaintId == filter.ComplaintId.Value);
 
-            if (filter.HandlerId.HasValue)
+            if (filter.EnterpriseId.HasValue)
                 query = query.Where(x =>
-                    x.HandlerId == filter.HandlerId.Value);
+                    x.EnterpriseId == filter.EnterpriseId.Value);
 
             if (filter.FromDate.HasValue)
                 query = query.Where(x =>
@@ -145,8 +154,8 @@ namespace Application.Services
             {
                 Id = entity.Id,
                 ComplaintId = entity.ComplaintId,
-                HandlerId = entity.HandlerId,
-                ResolutionNote = entity.ResolutionNote,
+                EnterpriseId = entity.EnterpriseId,
+                ResponseNote = entity.ResponseNote,
                 ResolvedAt = entity.ResolvedAt,
                 CreatedTime = entity.CreatedTime
             };

@@ -12,7 +12,7 @@ namespace Application.Contract.DTOs
 
         [Required]
         [MaxLength(1000)]
-        public string ResolutionNote { get; set; } = default!;
+        public string ResponseNote { get; set; } = default!;
     }
 
     // =============================
@@ -24,9 +24,9 @@ namespace Application.Contract.DTOs
 
         public Guid ComplaintId { get; set; }
 
-        public Guid HandlerId { get; set; }
+        public Guid EnterpriseId { get; set; }
 
-        public string ResolutionNote { get; set; } = default!;
+        public string ResponseNote { get; set; } = default!;
 
         public DateTimeOffset ResolvedAt { get; set; }
 
@@ -39,8 +39,8 @@ namespace Application.Contract.DTOs
     public class DisputeResolutionFilterDto
     {
         public Guid? ComplaintId { get; set; }
-
-        public Guid? HandlerId { get; set; }
+        public Guid? EnterpriseId { get; set; }
+        public Guid? ResponseNote { get; set; }
 
         public DateTimeOffset? FromDate { get; set; }
 
