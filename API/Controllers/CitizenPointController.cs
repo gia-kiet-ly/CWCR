@@ -3,6 +3,7 @@ using Application.Contract.Interfaces.Services;
 using Domain.Base;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
@@ -45,14 +46,26 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Lấy bảng xếp hạng công dân theo tổng điểm.
+        /// ⭐ NEW: Lấy bảng xếp hạng với filter Ward/District và Time-based
         /// </summary>
         [HttpGet("leaderboard")]
         [Authorize(Roles = "Citizen,Admin")]
-        public async Task<IActionResult> GetLeaderboard(int topCount = 10)
+        public async Task<IActionResult> GetLeaderboard([FromQuery] LeaderboardFilterDto filter)
         {
-            var leaderboard = await _service.GetLeaderboardAsync(topCount);
+            var leaderboard = await _service.GetLeaderboardAsync(filter);
             return Ok(BaseResponse<IEnumerable<LeaderboardDto>>.OkResponse(leaderboard));
+        }
+
+        /// <summary>
+        /// ⭐ NEW: Xem vị trí xếp hạng của bản thân
+        /// </summary>
+        [HttpGet("my-rank")]
+        [Authorize(Roles = "Citizen")]
+        public async Task<IActionResult> GetMyRank([FromQuery] LeaderboardPeriod period = LeaderboardPeriod.AllTime)
+        {
+            var citizenId = GetCurrentUserId();
+            var myRank = await _service.GetMyRankAsync(citizenId, period);
+            return Ok(BaseResponse<MyRankDto>.OkResponse(myRank));
         }
 
         /// <summary>
@@ -85,6 +98,19 @@ namespace API.Controllers
 
             var updatedPoint = await _service.UpdatePointAsync(citizenId, request);
             return Ok(BaseResponse<CitizenPointDto>.OkResponse(updatedPoint, "Cập nhật điểm thành công."));
+        }
+        private Guid GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                throw new BaseException.UnauthorizedException(
+                    "invalid_user_claim",
+                    "User id claim is missing or invalid.");
+            }
+
+            return userId;
         }
     }
 }
