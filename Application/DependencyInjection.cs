@@ -41,6 +41,7 @@ namespace Application
             services.AddScoped<ICollectorService, CollectorService>();
             services.AddScoped<IPointRuleService, PointRuleService>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IUserManagementService, UserManagementService>();
             return services;
         }
     }
