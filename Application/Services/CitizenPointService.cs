@@ -18,6 +18,7 @@ namespace Application.Services
             _uow = uow;
         }
 
+        // ================= GET POINT =================
         public async Task<CitizenPointDto?> GetPointAsync(Guid citizenId)
         {
             var repo = _uow.GetRepository<CitizenPoint>();
@@ -38,6 +39,7 @@ namespace Application.Services
             };
         }
 
+        // ================= GET HISTORY =================
         public async Task<IEnumerable<CitizenPointHistoryDto>> GetHistoryAsync(Guid citizenId, int pageNumber = 1, int pageSize = 20)
         {
             var repo = _uow.GetRepository<CitizenPointHistory>();
@@ -62,26 +64,317 @@ namespace Application.Services
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<LeaderboardDto>> GetLeaderboardAsync(int topCount = 10)
+        // ================= LEADERBOARD (BY CITIZEN LOCATION) =================
+        public async Task<IEnumerable<LeaderboardDto>> GetLeaderboardAsync(LeaderboardFilterDto filter)
         {
-            var repo = _uow.GetRepository<CitizenPoint>();
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
 
-            var points = await repo.Entities
-                .Include(p => p.Citizen)
-                .OrderByDescending(p => p.TotalPoints)
-                .Take(topCount)
-                .ToListAsync();
-
-            int rank = 1;
-            return points.Select(p => new LeaderboardDto
+            // Time-based filtering
+            if (filter.Period == LeaderboardPeriod.AllTime)
             {
-                Rank = rank++,
-                CitizenId = p.CitizenId,
-                CitizenName = p.Citizen.FullName,
-                TotalPoints = p.TotalPoints
-            });
+                // Dùng TotalPoints từ CitizenPoint
+                var query = pointRepo.Entities
+                    .Include(p => p.Citizen)
+                        .ThenInclude(c => c.Ward)
+                    .Include(p => p.Citizen)
+                        .ThenInclude(c => c.District)
+                    .AsQueryable();
+
+                // Filter by Ward
+                if (filter.WardId.HasValue)
+                {
+                    query = query.Where(p => p.Citizen.WardId == filter.WardId.Value);
+                }
+                // Filter by District
+                else if (filter.DistrictId.HasValue)
+                {
+                    query = query.Where(p => p.Citizen.DistrictId == filter.DistrictId.Value);
+                }
+
+                var points = await query
+                    .OrderByDescending(p => p.TotalPoints)
+                    .Take(filter.TopCount)
+                    .ToListAsync();
+
+                int rank = 1;
+                return points.Select(p => new LeaderboardDto
+                {
+                    Rank = rank++,
+                    CitizenId = p.CitizenId,
+                    CitizenName = p.Citizen.FullName ?? "Unknown",
+                    TotalPoints = p.TotalPoints,
+                    WardId = p.Citizen.WardId,
+                    WardName = p.Citizen.Ward?.Name,
+                    DistrictId = p.Citizen.DistrictId,
+                    DistrictName = p.Citizen.District?.Name
+                });
+            }
+            else
+            {
+                // Tính điểm theo period từ history
+                var (startDate, endDate) = GetDateRangeForPeriod(filter.Period);
+
+                var pointsInPeriod = await historyRepo.Entities
+                    .Where(h => h.CreatedTime >= startDate && h.CreatedTime <= endDate)
+                    .GroupBy(h => h.CitizenId)
+                    .Select(g => new
+                    {
+                        CitizenId = g.Key,
+                        Points = g.Sum(h => h.Points)
+                    })
+                    .ToListAsync();
+
+                var citizenIds = pointsInPeriod.Select(p => p.CitizenId).ToList();
+
+                // Get citizen info
+                var query = pointRepo.Entities
+                    .Include(p => p.Citizen)
+                        .ThenInclude(c => c.Ward)
+                    .Include(p => p.Citizen)
+                        .ThenInclude(c => c.District)
+                    .Where(p => citizenIds.Contains(p.CitizenId))
+                    .AsQueryable();
+
+                // Filter by Ward
+                if (filter.WardId.HasValue)
+                {
+                    query = query.Where(p => p.Citizen.WardId == filter.WardId.Value);
+                }
+                // Filter by District
+                else if (filter.DistrictId.HasValue)
+                {
+                    query = query.Where(p => p.Citizen.DistrictId == filter.DistrictId.Value);
+                }
+
+                var citizens = await query.ToListAsync();
+
+                // Join với points in period
+                var leaderboard = citizens
+                    .Select(c => new
+                    {
+                        Citizen = c,
+                        Points = pointsInPeriod.FirstOrDefault(p => p.CitizenId == c.CitizenId)?.Points ?? 0
+                    })
+                    .OrderByDescending(x => x.Points)
+                    .Take(filter.TopCount)
+                    .ToList();
+
+                int rank = 1;
+                return leaderboard.Select(x => new LeaderboardDto
+                {
+                    Rank = rank++,
+                    CitizenId = x.Citizen.CitizenId,
+                    CitizenName = x.Citizen.Citizen.FullName ?? "Unknown",
+                    TotalPoints = x.Points,
+                    WardId = x.Citizen.Citizen.WardId,
+                    WardName = x.Citizen.Citizen.Ward?.Name,
+                    DistrictId = x.Citizen.Citizen.DistrictId,
+                    DistrictName = x.Citizen.Citizen.District?.Name
+                });
+            }
         }
 
+        // ================= GET MY RANK =================
+        public async Task<MyRankDto> GetMyRankAsync(Guid citizenId, LeaderboardPeriod period = LeaderboardPeriod.AllTime)
+        {
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
+
+            var citizenPoint = await pointRepo.Entities
+                .Include(p => p.Citizen)
+                    .ThenInclude(c => c.Ward)
+                        .ThenInclude(w => w.District)
+                .Include(p => p.Citizen)
+                    .ThenInclude(c => c.District)
+                .FirstOrDefaultAsync(p => p.CitizenId == citizenId);
+
+            if (citizenPoint == null)
+            {
+                throw new Exception($"CitizenPoint not found for citizenId: {citizenId}");
+            }
+
+            int myPoints;
+
+            // Calculate points based on period
+            if (period == LeaderboardPeriod.AllTime)
+            {
+                myPoints = citizenPoint.TotalPoints;
+            }
+            else
+            {
+                var (startDate, endDate) = GetDateRangeForPeriod(period);
+                myPoints = await historyRepo.Entities
+                    .Where(h => h.CitizenId == citizenId && h.CreatedTime >= startDate && h.CreatedTime <= endDate)
+                    .SumAsync(h => h.Points);
+            }
+
+            // Global Rank
+            var (globalRank, globalTotal) = await CalculateRankAsync(citizenId, myPoints, null, null, period);
+
+            // Ward Rank
+            int? wardRank = null;
+            int wardTotal = 0;
+            if (citizenPoint.Citizen.WardId.HasValue)
+            {
+                (wardRank, wardTotal) = await CalculateRankAsync(
+                    citizenId, myPoints, citizenPoint.Citizen.WardId.Value, null, period);
+            }
+
+            // District Rank
+            int? districtRank = null;
+            int districtTotal = 0;
+            if (citizenPoint.Citizen.DistrictId.HasValue)
+            {
+                (districtRank, districtTotal) = await CalculateRankAsync(
+                    citizenId, myPoints, null, citizenPoint.Citizen.DistrictId.Value, period);
+            }
+
+            // Points to next rank
+            var (pointsToNext, nextRankName) = await CalculatePointsToNextRankAsync(citizenId, myPoints, period);
+
+            return new MyRankDto
+            {
+                CitizenId = citizenPoint.CitizenId,
+                CitizenName = citizenPoint.Citizen.FullName ?? "Unknown",
+                TotalPoints = myPoints,
+                GlobalRank = globalRank,
+                GlobalTotalUsers = globalTotal,
+                WardRank = wardRank,
+                WardTotalUsers = wardTotal,
+                DistrictRank = districtRank,
+                DistrictTotalUsers = districtTotal,
+                WardId = citizenPoint.Citizen.WardId,
+                WardName = citizenPoint.Citizen.Ward?.Name,
+                DistrictId = citizenPoint.Citizen.DistrictId,
+                DistrictName = citizenPoint.Citizen.District?.Name,
+                PointsToNextRank = pointsToNext,
+                NextRankCitizenName = nextRankName
+            };
+        }
+
+        // ================= HELPER METHODS =================
+        private (DateTimeOffset startDate, DateTimeOffset endDate) GetDateRangeForPeriod(LeaderboardPeriod period)
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            return period switch
+            {
+                LeaderboardPeriod.Daily => (now.Date, now),
+                LeaderboardPeriod.Weekly => (now.AddDays(-7), now),
+                LeaderboardPeriod.Monthly => (new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero), now),
+                LeaderboardPeriod.Yearly => (new DateTimeOffset(now.Year, 1, 1, 0, 0, 0, TimeSpan.Zero), now),
+                _ => (DateTimeOffset.MinValue, now)
+            };
+        }
+
+        private async Task<(int? rank, int total)> CalculateRankAsync(
+            Guid citizenId,
+            int myPoints,
+            Guid? wardId,
+            Guid? districtId,
+            LeaderboardPeriod period)
+        {
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
+
+            if (period == LeaderboardPeriod.AllTime)
+            {
+                var query = pointRepo.Entities.Include(p => p.Citizen).AsQueryable();
+
+                if (wardId.HasValue)
+                    query = query.Where(p => p.Citizen.WardId == wardId.Value);
+                else if (districtId.HasValue)
+                    query = query.Where(p => p.Citizen.DistrictId == districtId.Value);
+
+                var total = await query.CountAsync();
+                var rank = await query.CountAsync(p => p.TotalPoints > myPoints) + 1;
+
+                return (rank, total);
+            }
+            else
+            {
+                var (startDate, endDate) = GetDateRangeForPeriod(period);
+
+                var pointsInPeriod = await historyRepo.Entities
+                    .Where(h => h.CreatedTime >= startDate && h.CreatedTime <= endDate)
+                    .GroupBy(h => h.CitizenId)
+                    .Select(g => new
+                    {
+                        CitizenId = g.Key,
+                        Points = g.Sum(h => h.Points)
+                    })
+                    .ToListAsync();
+
+                var citizenQuery = pointRepo.Entities.Include(p => p.Citizen).AsQueryable();
+
+                if (wardId.HasValue)
+                    citizenQuery = citizenQuery.Where(p => p.Citizen.WardId == wardId.Value);
+                else if (districtId.HasValue)
+                    citizenQuery = citizenQuery.Where(p => p.Citizen.DistrictId == districtId.Value);
+
+                var citizenIds = await citizenQuery.Select(p => p.CitizenId).ToListAsync();
+
+                var filteredPoints = pointsInPeriod
+                    .Where(p => citizenIds.Contains(p.CitizenId))
+                    .ToList();
+
+                var total = filteredPoints.Count;
+                var rank = filteredPoints.Count(p => p.Points > myPoints) + 1;
+
+                return (rank, total);
+            }
+        }
+
+        private async Task<(int pointsToNext, string? nextRankName)> CalculatePointsToNextRankAsync(
+            Guid citizenId,
+            int myPoints,
+            LeaderboardPeriod period)
+        {
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
+
+            if (period == LeaderboardPeriod.AllTime)
+            {
+                var nextPerson = await pointRepo.Entities
+                    .Include(p => p.Citizen)
+                    .Where(p => p.TotalPoints > myPoints && p.CitizenId != citizenId)
+                    .OrderBy(p => p.TotalPoints)
+                    .FirstOrDefaultAsync();
+
+                if (nextPerson == null)
+                    return (0, null);
+
+                return (nextPerson.TotalPoints - myPoints, nextPerson.Citizen.FullName);
+            }
+            else
+            {
+                var (startDate, endDate) = GetDateRangeForPeriod(period);
+
+                var pointsInPeriod = await historyRepo.Entities
+                    .Where(h => h.CreatedTime >= startDate && h.CreatedTime <= endDate)
+                    .GroupBy(h => h.CitizenId)
+                    .Select(g => new
+                    {
+                        CitizenId = g.Key,
+                        Points = g.Sum(h => h.Points)
+                    })
+                    .Where(p => p.Points > myPoints && p.CitizenId != citizenId)
+                    .OrderBy(p => p.Points)
+                    .FirstOrDefaultAsync();
+
+                if (pointsInPeriod == null)
+                    return (0, null);
+
+                var nextCitizen = await pointRepo.Entities
+                    .Include(p => p.Citizen)
+                    .FirstOrDefaultAsync(p => p.CitizenId == pointsInPeriod.CitizenId);
+
+                return (pointsInPeriod.Points - myPoints, nextCitizen?.Citizen.FullName);
+            }
+        }
+
+        // ================= AWARD POINTS =================
         public async Task<CitizenPointDto> AwardPointsForVerifiedReportAsync(Guid wasteReportId)
         {
             var reportRepo = _uow.GetRepository<WasteReport>();
@@ -171,6 +464,7 @@ namespace Application.Services
             };
         }
 
+        // ================= UPDATE POINTS =================
         public async Task<CitizenPointDto> UpdatePointAsync(Guid citizenId, UpdateCitizenPointRequest request)
         {
             var pointRepo = _uow.GetRepository<CitizenPoint>();

@@ -16,6 +16,12 @@ namespace Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
 
+        public Guid? WardId { get; set; }
+        public Ward? Ward { get; set; }
+
+        public Guid? DistrictId { get; set; }
+        public District? District { get; set; }
+
         public ICollection<CollectorAssignment> Assignments { get; set; } = new List<CollectorAssignment>();
 
         public CollectorProfile? CollectorProfile { get; set; }
