@@ -42,6 +42,7 @@ namespace Application
             services.AddScoped<IPointRuleService, PointRuleService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IUserManagementService, UserManagementService>();
+            services.AddScoped<IUserProfileService, UserProfileService>();
             return services;
         }
     }
