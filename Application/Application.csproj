@@ -8,8 +8,20 @@
 
   <ItemGroup>
     <Compile Remove="BusinessUseCase\**" />
+    <Compile Remove="Extensions\**" />
+    <Compile Remove="ExternalService\**" />
+    <Compile Remove="Infrastructure\**" />
+    <Compile Remove="MappingProfiles\**" />
     <EmbeddedResource Remove="BusinessUseCase\**" />
+    <EmbeddedResource Remove="Extensions\**" />
+    <EmbeddedResource Remove="ExternalService\**" />
+    <EmbeddedResource Remove="Infrastructure\**" />
+    <EmbeddedResource Remove="MappingProfiles\**" />
     <None Remove="BusinessUseCase\**" />
+    <None Remove="Extensions\**" />
+    <None Remove="ExternalService\**" />
+    <None Remove="Infrastructure\**" />
+    <None Remove="MappingProfiles\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,13 +44,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Application.Contract\Application.Contract.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Extensions\" />
-    <Folder Include="ExternalService\" />
-    <Folder Include="Infrastructure\" />
-    <Folder Include="MappingProfiles\" />
   </ItemGroup>
 
 </Project>
