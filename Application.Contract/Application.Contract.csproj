@@ -7,12 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Configurations\**" />
     <Compile Remove="DTOs\UsecaseDTO\**" />
     <Compile Remove="Interface.BusinessUseCase\**" />
+    <Compile Remove="Interfaces.ExternalService\**" />
+    <EmbeddedResource Remove="Configurations\**" />
     <EmbeddedResource Remove="DTOs\UsecaseDTO\**" />
     <EmbeddedResource Remove="Interface.BusinessUseCase\**" />
+    <EmbeddedResource Remove="Interfaces.ExternalService\**" />
+    <None Remove="Configurations\**" />
     <None Remove="DTOs\UsecaseDTO\**" />
     <None Remove="Interface.BusinessUseCase\**" />
+    <None Remove="Interfaces.ExternalService\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,15 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AutoMapper" Version="15.0.1" />
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Features" Version="2.3.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
     <PackageReference Include="payOS" Version="1.0.9" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Configurations\" />
-    <Folder Include="Interfaces.ExternalService\" />
   </ItemGroup>
 
 </Project>

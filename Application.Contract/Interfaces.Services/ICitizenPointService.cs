@@ -16,8 +16,15 @@ namespace Application.Contract.Interfaces.Services
             int pageNumber = 1,
             int pageSize = 20);
 
-        // Lấy top N citizen dựa trên TotalPoints.
-        Task<IEnumerable<LeaderboardDto>> GetLeaderboardAsync(int topCount = 10);
+        /// <summary>
+        /// Get leaderboard với filter Ward/District và Time-based
+        /// </summary>
+        Task<IEnumerable<LeaderboardDto>> GetLeaderboardAsync(LeaderboardFilterDto filter);
+
+        /// <summary>
+        /// Xem vị trí xếp hạng của bản thân
+        /// </summary>
+        Task<MyRankDto> GetMyRankAsync(Guid citizenId, LeaderboardPeriod period = LeaderboardPeriod.AllTime);
 
         // Cộng điểm cho citizen dựa trên WasteReport đã được xác minh.
         Task<CitizenPointDto> AwardPointsForVerifiedReportAsync(Guid wasteReportId);

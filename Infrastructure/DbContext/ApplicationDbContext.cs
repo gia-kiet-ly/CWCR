@@ -63,6 +63,20 @@ namespace Infrastructure.DbContext
             builder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaims");
             builder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
 
+            // ApplicationUser Ward/District Configuration
+            builder.Entity<ApplicationUser>(entity =>
+            {
+                entity.HasOne(u => u.Ward)
+                    .WithMany()
+                    .HasForeignKey(u => u.WardId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(u => u.District)
+                    .WithMany()
+                    .HasForeignKey(u => u.DistrictId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
             // ======================== WasteReport Configuration ========================
 
             builder.Entity<WasteReport>(entity =>
