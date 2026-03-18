@@ -69,18 +69,25 @@ namespace API.Middleware
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
 
+        //Production
         private static async Task HandleUnexpectedExceptionAsync(HttpContext context, Exception ex)
         {
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+            var isDev = context.RequestServices
+                .GetRequiredService<IWebHostEnvironment>()
+                .IsDevelopment();
+
             var response = new
             {
                 code = "INTERNAL_ERROR",
                 message = "An unexpected error occurred.",
-                detail = ex.Message,
-                inner = ex.InnerException?.Message,
-                inner2 = ex.InnerException?.InnerException?.Message // EF thường lồng 2 lớp
+                detail = isDev ? ex.Message : null,
+                inner = isDev ? ex.InnerException?.Message : null,
+                inner2 = isDev ? ex.InnerException?.InnerException?.Message : null
             };
+
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
     }
