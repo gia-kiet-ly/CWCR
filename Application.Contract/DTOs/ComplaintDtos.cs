@@ -13,11 +13,10 @@ namespace Application.Contract.DTOs
         // Optional
         public Guid? CollectionRequestId { get; set; }
 
-        [Required]
+        [Required, MaxLength(50)]
         public string Type { get; set; } = default!;   // map sang enum ComplaintType
 
-        [Required]
-        [MaxLength(1000)]
+        [Required, MinLength(10), MaxLength(1000)]
         public string Content { get; set; } = default!;
     }
 
@@ -26,7 +25,7 @@ namespace Application.Contract.DTOs
     // =============================
     public class UpdateComplaintStatusDto
     {
-        [Required]
+        [Required, MaxLength(50)]
         public string Status { get; set; } = default!; // map sang enum ComplaintStatus
     }
 
@@ -67,8 +66,10 @@ namespace Application.Contract.DTOs
 
         public Guid? ReportId { get; set; }
 
+        [Range(1, int.MaxValue, ErrorMessage = "PageNumber phải >= 1.")]
         public int PageNumber { get; set; } = 1;
 
+        [Range(1, 100, ErrorMessage = "PageSize phải từ 1 đến 100.")]
         public int PageSize { get; set; } = 10;
     }
 
