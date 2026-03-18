@@ -265,6 +265,9 @@ namespace Application.Services
 
             if (newStatus == ProofReviewStatus.Approved)
             {
+                entity.Assignment.Status = AssignmentStatus.Completed;
+                entity.Assignment.LastUpdatedTime = DateTimeOffset.UtcNow;
+
                 entity.Assignment.Request.Status = CollectionRequestStatus.Completed;
                 entity.Assignment.Request.LastUpdatedTime = DateTimeOffset.UtcNow;
 
