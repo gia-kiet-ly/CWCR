@@ -16,13 +16,16 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllers();
-
 // INFRASTRUCTURE
 builder.Services.AddConfig(builder.Configuration);
 
-// ✅ NEW: RegionCode resolver (reverse geocode lat/long -> RegionCode)
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
+// RegionCode resolver (reverse geocode lat/long -> RegionCode)
 builder.Services.AddHttpClient<IRegionCodeResolver, RegionCodeResolver>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
@@ -31,12 +34,6 @@ builder.Services.AddHttpClient<IRegionCodeResolver, RegionCodeResolver>(client =
     // Nominatim requires a valid User-Agent
     client.DefaultRequestHeaders.UserAgent.ParseAdd("EcoCollect/1.0 (contact: ntvq88@gmail.com)");
 });
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
 
 // JWT
 builder.Services.AddAuthentication(options =>
@@ -127,7 +124,8 @@ using (var scope = app.Services.CreateScope())
     await LocationSeeder.SeedAsync(context);
 }
 
-// Configure the HTTP request pipeline.
+app.UseMiddleware<CustomErrorMiddleware>();
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -140,7 +138,7 @@ app.UseStaticFiles();
 app.UseCors("OpenCors");
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<CustomErrorMiddleware>();
+
 app.MapControllers();
 
 app.Run();
