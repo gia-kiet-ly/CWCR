@@ -1,4 +1,5 @@
 ﻿using Core.Enum;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
 {
@@ -44,8 +45,10 @@ namespace Application.Contract.DTOs
     {
         public CollectionRequestStatus? Status { get; set; }
 
+        [Range(1, int.MaxValue, ErrorMessage = "PageNumber phải >= 1.")]
         public int PageNumber { get; set; } = 1;
 
+        [Range(1, 100, ErrorMessage = "PageSize phải từ 1 đến 100.")]
         public int PageSize { get; set; } = 10;
     }
 
@@ -64,16 +67,20 @@ namespace Application.Contract.DTOs
 
     public class AcceptCollectionRequestDto
     {
+        [Required]
         public Guid RequestId { get; set; }
     }
 
 
     public class RejectCollectionRequestDto
     {
+        [Required]
         public Guid RequestId { get; set; }
 
+        [Required]
         public RejectReason Reason { get; set; }
 
+        [MaxLength(500)]
         public string? Note { get; set; }
     }
 
