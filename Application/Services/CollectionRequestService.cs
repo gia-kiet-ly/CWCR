@@ -204,6 +204,9 @@ namespace Application.Services
             entity.Status = CollectionRequestStatus.Accepted;
             entity.LastUpdatedTime = DateTimeOffset.UtcNow;
 
+            entity.WasteReportWaste.WasteReport.Status = WasteReportStatus.Accepted;
+            entity.WasteReportWaste.WasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
+
             repo.Update(entity);
 
             var capability = await capRepo.Entities.FirstOrDefaultAsync(x =>

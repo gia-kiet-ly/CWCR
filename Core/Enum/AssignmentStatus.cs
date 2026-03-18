@@ -9,6 +9,7 @@ namespace Core.Enum {
     {
         Assigned,
         OnTheWay,
-        Collected
+        Collected,
+        Completed
     }
 }
