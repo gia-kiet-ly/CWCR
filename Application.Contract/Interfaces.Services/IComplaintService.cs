@@ -36,5 +36,9 @@ namespace Application.Contract.Services
             Guid id,
             UpdateComplaintStatusDto dto,
             Guid adminId);
+
+        Task<PagedComplaintDto> GetEnterpriseComplaintsAsync(
+    Guid enterpriseId,
+    ComplaintFilterDto filter);
     }
 }

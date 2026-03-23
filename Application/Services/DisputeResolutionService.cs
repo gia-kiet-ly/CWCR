@@ -38,9 +38,6 @@ namespace Application.Services
             if (complaint.Status != ComplaintStatus.InReview)
                 throw new Exception("Complaint is not under review.");
 
-            if (!complaint.CreatedBy.HasValue)
-                throw new Exception("Complaint creator not found.");
-
             // Prevent enterprise responding multiple times
             var existed = disputeRepo.Entities.Any(x =>
                 x.ComplaintId == dto.ComplaintId &&
@@ -69,10 +66,10 @@ namespace Application.Services
 
             // Notify citizen
             await _notificationService.CreateAsync(
-                complaint.CreatedBy.Value,
+                complaint.ComplainantId,    // ✅
                 NotificationConstants.Types.DISPUTE_RESOLVED,
                 complaint.Id.ToString()
-            );
+                        );
 
             return MapToDto(dispute);
         }

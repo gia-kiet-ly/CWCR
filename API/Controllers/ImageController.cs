@@ -1,7 +1,11 @@
-﻿
+﻿using Application.Contract.Interfaces;
+using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
+using Core.Enum;
+using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -10,17 +14,18 @@ namespace API.Controllers
     public class ImageController : ControllerBase
     {
         private readonly IImageService _imageService;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public ImageController(IImageService imageService)
+        public ImageController(IImageService imageService, IUnitOfWork unitOfWork)
         {
             _imageService = imageService;
+            _unitOfWork = unitOfWork;
         }
 
         // =============================
         // Upload 1 ảnh
         // =============================
         [HttpPost("upload")]
-        //[Authorize]
         public async Task<IActionResult> Upload(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -39,13 +44,35 @@ namespace API.Controllers
             {
                 using var stream = file.OpenReadStream();
 
-                var result = await _imageService
-                    .UploadImageAsync(stream, file.FileName);
+                // [1] SafeSearch
+                await _imageService.CheckSafeSearchAsync(stream);
+                stream.Position = 0;
+
+                // [2] Analyze waste category
+                var suggestedCategory = await _imageService.AnalyzeWasteCategoryAsync(stream);
+                stream.Position = 0;
+
+                // [2.5] Map category -> WasteTypeId
+                Guid? suggestedWasteTypeId = null;
+                if (suggestedCategory.HasValue)
+                {
+                    var wasteTypeRepo = _unitOfWork.GetRepository<WasteType>();
+                    var matched = await wasteTypeRepo.NoTrackingEntities
+                        .Where(x => x.Category == suggestedCategory.Value && x.IsActive && !x.IsDeleted)
+                        .FirstOrDefaultAsync();
+
+                    suggestedWasteTypeId = matched?.Id;
+                }
+
+                // [3] Upload Cloudinary
+                var result = await _imageService.UploadImageAsync(stream, file.FileName);
 
                 return Ok(new
                 {
                     result.Url,
-                    result.PublicId
+                    result.PublicId,
+                    SuggestedCategory = suggestedCategory?.ToString(),
+                    SuggestedWasteTypeId = suggestedWasteTypeId
                 });
             }
             catch (Exception ex)
@@ -98,8 +125,7 @@ namespace API.Controllers
                 {
                     using var stream = file.OpenReadStream();
 
-                    var result = await _imageService
-                        .UploadImageAsync(stream, file.FileName);
+                    var result = await _imageService.UploadImageAsync(stream, file.FileName);
 
                     uploaded.Add(new
                     {
@@ -137,8 +163,7 @@ namespace API.Controllers
                 var success = await _imageService.DeleteImageAsync(publicId);
 
                 if (!success)
-                    return StatusCode(500,
-                        new { Message = "Failed to delete image." });
+                    return StatusCode(500, new { Message = "Failed to delete image." });
 
                 return Ok(new { Message = "Image deleted successfully." });
             }

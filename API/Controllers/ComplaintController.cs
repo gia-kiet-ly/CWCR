@@ -18,6 +18,18 @@ namespace API.Controllers
             _service = service;
         }
 
+        //[Authorize(Roles = "Enterprise")]
+        [HttpGet("enterprise")]
+        public async Task<IActionResult> GetEnterpriseComplaints(
+    [FromQuery] ComplaintFilterDto filter)
+        {
+            var enterpriseId = GetUserId();
+
+            var result = await _service
+                .GetEnterpriseComplaintsAsync(enterpriseId, filter);
+
+            return Ok(result);
+        }
         // =====================================================
         // CREATE (Citizen)
         // =====================================================

@@ -9,12 +9,22 @@ using Infrastructure.DataSeeds;
 using Infrastructure.DbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Vision.V1;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Google Vision — phải trước AddConfig
+var visionBase64 = builder.Configuration["GoogleCloud:VisionCredentialsBase64"];
+var visionBytes = Convert.FromBase64String(visionBase64!);
+var visionCredential = GoogleCredential.FromStream(new MemoryStream(visionBytes));
+builder.Services.AddSingleton(new ImageAnnotatorClientBuilder
+{
+    Credential = visionCredential
+}.Build());
 
 // INFRASTRUCTURE
 builder.Services.AddConfig(builder.Configuration);
@@ -25,13 +35,11 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// RegionCode resolver (reverse geocode lat/long -> RegionCode)
+// RegionCode resolver
 builder.Services.AddHttpClient<IRegionCodeResolver, RegionCodeResolver>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
     client.Timeout = TimeSpan.FromSeconds(10);
-
-    // Nominatim requires a valid User-Agent
     client.DefaultRequestHeaders.UserAgent.ParseAdd("EcoCollect/1.0 (contact: ntvq88@gmail.com)");
 });
 
@@ -69,7 +77,6 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "CWCR API", Version = "v1" });
 
-    // JWT config cho Swagger
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -96,7 +103,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-//CORS
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("OpenCors", policy =>
@@ -110,7 +117,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-//Data Seed
+// Data Seed
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -130,7 +137,7 @@ app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "CWCR API v1");
-    options.RoutePrefix = "swagger";  // Swagger UI tại: /swagger
+    options.RoutePrefix = "swagger";
 });
 
 app.UseHttpsRedirection();
@@ -138,7 +145,6 @@ app.UseStaticFiles();
 app.UseCors("OpenCors");
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
