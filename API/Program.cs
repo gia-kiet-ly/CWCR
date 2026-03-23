@@ -13,11 +13,21 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
+using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Vision.V1;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+// Google Vision — phải trước AddConfig
+var visionBase64 = builder.Configuration["GoogleCloud:VisionCredentialsBase64"];
+var visionBytes = Convert.FromBase64String(visionBase64!);
+var visionCredential = GoogleCredential.FromStream(new MemoryStream(visionBytes));
+builder.Services.AddSingleton(new ImageAnnotatorClientBuilder
+{
+    Credential = visionCredential
+}.Build());
 
 // INFRASTRUCTURE
 builder.Services.AddConfig(builder.Configuration);
