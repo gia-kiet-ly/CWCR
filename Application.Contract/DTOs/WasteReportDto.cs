@@ -8,21 +8,29 @@ namespace Application.Contract.DTOs
     // =============================
     public class CreateWasteReportDto
     {
+        [MaxLength(500)]
         public string? Description { get; set; }
 
         // GPS có thể tự fill
+        [Range(-90.0, 90.0, ErrorMessage = "Latitude phải trong khoảng -90 đến 90.")]
         public decimal? Latitude { get; set; }
+
+        [Range(-180.0, 180.0, ErrorMessage = "Longitude phải trong khoảng -180 đến 180.")]
         public decimal? Longitude { get; set; }
 
+        [MinLength(1, ErrorMessage = "Phải có ít nhất 1 loại rác.")]
         public List<CreateWasteItemDto> Wastes { get; set; } = new();
     }
 
     public class CreateWasteItemDto
     {
+        [Required]
         public Guid WasteTypeId { get; set; }
 
+        [Range(1, 10000, ErrorMessage = "Số lượng phải từ 1 đến 10000.")]
         public int Quantity { get; set; }
 
+        [MaxLength(500)]
         public string? Note { get; set; }
 
         public List<string> Images { get; set; } = new();
@@ -33,9 +41,13 @@ namespace Application.Contract.DTOs
     // =============================
     public class UpdateWasteReportDto
     {
+        [MaxLength(500)]
         public string? Description { get; set; }
 
+        [Range(-90.0, 90.0, ErrorMessage = "Latitude phải trong khoảng -90 đến 90.")]
         public decimal? Latitude { get; set; }
+
+        [Range(-180.0, 180.0, ErrorMessage = "Longitude phải trong khoảng -180 đến 180.")]
         public decimal? Longitude { get; set; }
 
         // Cho phép chỉnh sửa waste items khi bị reject
@@ -44,10 +56,13 @@ namespace Application.Contract.DTOs
 
     public class UpdateWasteItemDto
     {
+        [Required]
         public Guid WasteTypeId { get; set; }
 
+        [Range(1, 10000, ErrorMessage = "Số lượng phải từ 1 đến 10000.")]
         public int Quantity { get; set; }
 
+        [MaxLength(500)]
         public string? Note { get; set; }
 
         // Replace lại toàn bộ images nếu citizen upload lại
@@ -119,8 +134,10 @@ namespace Application.Contract.DTOs
 
         public string? Keyword { get; set; }
 
+        [Range(1, int.MaxValue, ErrorMessage = "PageNumber phải >= 1.")]
         public int PageNumber { get; set; } = 1;
 
+        [Range(1, 100, ErrorMessage = "PageSize phải từ 1 đến 100.")]
         public int PageSize { get; set; } = 10;
     }
 

@@ -6,6 +6,7 @@ namespace Application.Contract.DTOs
     {
         [Required]
         [EmailAddress]
+        [MaxLength(256)]
         public string Email { get; set; } = default!;
 
         [Required]
@@ -14,19 +15,23 @@ namespace Application.Contract.DTOs
 
     public class RegisterRequestDto
     {
-        [Required, EmailAddress]
+        [Required, EmailAddress, MaxLength(256)]
         public string Email { get; set; } = default!;
 
-        [Required, MinLength(6)]
+        [Required, MinLength(6), MaxLength(100)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).+$",
+            ErrorMessage = "M��t khẩu phải có ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt.")]
         public string Password { get; set; } = default!;
 
         [Required]
-        public string Role { get; set; } = default!; // Citizen | Enterprise
+        [RegularExpression("^(Citizen|Enterprise)$",
+            ErrorMessage = "Role chỉ được là 'Citizen' hoặc 'Enterprise'.")]
+        public string Role { get; set; } = default!;
 
-        [Required]
+        [Required, MinLength(2), MaxLength(100)]
         public string FullName { get; set; } = default!;
 
-        [Required, Phone]
+        [Required, Phone, MaxLength(15)]
         public string Phone { get; set; } = default!;
     }
 
