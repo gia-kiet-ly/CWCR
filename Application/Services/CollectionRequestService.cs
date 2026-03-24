@@ -12,13 +12,17 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly INotificationService _notificationService;
+        private readonly IRegionCodeResolver _regionCodeResolver;
 
         public CollectionRequestService(
             IUnitOfWork uow,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IRegionCodeResolver regionCodeResolver)
+
         {
             _uow = uow;
             _notificationService = notificationService;
+            _regionCodeResolver = regionCodeResolver;
         }
 
         // =============================
@@ -173,12 +177,26 @@ namespace Application.Services
                 .Take(filter.PageSize)
                 .ToListAsync();
 
+            var dtos = items.Select(MapToDto).ToList();
+
+            // ✅ Thêm address (KHÔNG đụng logic cũ)
+            foreach (var dto in dtos)
+            {
+                if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+                {
+                    var (address, _) = await _regionCodeResolver
+                        .ResolveFullAsync(dto.Latitude.Value, dto.Longitude.Value);
+
+                    dto.Address = address;
+                }
+            }
+
             return new PagedCollectionRequestDto
             {
                 TotalCount = total,
                 PageNumber = filter.PageNumber,
                 PageSize = filter.PageSize,
-                Items = items.Select(MapToDto).ToList()
+                Items = dtos
             };
         }
 
