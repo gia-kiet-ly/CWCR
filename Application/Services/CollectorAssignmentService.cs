@@ -14,13 +14,16 @@ namespace Application.Services
     {
         private readonly IUnitOfWork _uow;
         private readonly INotificationService _notificationService;
+        private readonly IRegionCodeResolver _regionCodeResolver; // ✅ NEW
 
         public CollectorAssignmentService(
             IUnitOfWork uow,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IRegionCodeResolver regionCodeResolver) // ✅ NEW
         {
             _uow = uow;
             _notificationService = notificationService;
+            _regionCodeResolver = regionCodeResolver;
         }
 
         // ================= ENTERPRISE: CREATE ASSIGNMENT =================
@@ -109,7 +112,20 @@ namespace Application.Services
                                           !a.IsDeleted &&
                                           a.Request.EnterpriseId == enterpriseId);
 
-            return entity == null ? null : Map(entity);
+            if (entity == null) return null;
+
+            var dto = Map(entity);
+
+            // ✅ ADD ADDRESS
+            if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+            {
+                var (address, _) = await _regionCodeResolver
+                    .ResolveFullAsync(dto.Latitude.Value, dto.Longitude.Value);
+
+                dto.Address = address;
+            }
+
+            return dto;
         }
 
         // ================= ENTERPRISE: GET PAGED =================
@@ -149,6 +165,18 @@ namespace Application.Services
 
             var dtos = list.Select(Map).ToList();
 
+            // ⚠️ Enrich Address (có thể optimize sau)
+            foreach (var dto in dtos)
+            {
+                if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+                {
+                    var (address, _) = await _regionCodeResolver
+                        .ResolveFullAsync(dto.Latitude.Value, dto.Longitude.Value);
+
+                    dto.Address = address;
+                }
+            }
+
             return new PaginatedList<CollectorAssignmentDto>(dtos, total, page, filter.PageSize);
         }
 
@@ -171,7 +199,20 @@ namespace Application.Services
                                           !a.IsDeleted &&
                                           a.CollectorId == collectorUserId);
 
-            return entity == null ? null : Map(entity);
+            if (entity == null) return null;
+
+            var dto = Map(entity);
+
+            // ✅ ADD ADDRESS
+            if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+            {
+                var (address, _) = await _regionCodeResolver
+                    .ResolveFullAsync(dto.Latitude.Value, dto.Longitude.Value);
+
+                dto.Address = address;
+            }
+
+            return dto;
         }
 
         // ================= COLLECTOR: GET PAGED =================
@@ -207,6 +248,18 @@ namespace Application.Services
                 .ToListAsync();
 
             var dtos = list.Select(Map).ToList();
+
+            foreach (var dto in dtos)
+            {
+                if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+                {
+                    var (address, _) = await _regionCodeResolver
+                        .ResolveFullAsync(dto.Latitude.Value, dto.Longitude.Value);
+
+                    dto.Address = address;
+                }
+            }
+
             return new PaginatedList<CollectorAssignmentDto>(dtos, total, page, filter.PageSize);
         }
 
@@ -262,6 +315,7 @@ namespace Application.Services
             return true;
         }
 
+        // ================= MAP =================
         private static CollectorAssignmentDto Map(CollectorAssignment x)
         {
             var request = x.Request;

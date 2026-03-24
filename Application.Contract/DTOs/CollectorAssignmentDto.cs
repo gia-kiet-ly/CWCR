@@ -37,6 +37,7 @@ namespace Application.Contract.DTOs
         public Guid WasteReportId { get; set; }
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
+        public string? Address { get; set; }
         public string? RegionCode { get; set; }
     }
 

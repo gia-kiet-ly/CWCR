@@ -193,6 +193,85 @@ namespace Application.Services
 
             return s;
         }
+        public async Task<(string? Address, string? RegionCode)> ResolveFullAsync(decimal latitude, decimal longitude)
+        {
+            var url =
+                $"reverse?format=jsonv2&lat={latitude.ToString(CultureInfo.InvariantCulture)}&lon={longitude.ToString(CultureInfo.InvariantCulture)}" +
+                $"&zoom=14&addressdetails=1";
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+
+            if (!req.Headers.UserAgent.Any())
+                req.Headers.UserAgent.ParseAdd("EcoCollect/1.0 (contact: dev@local)");
+
+            HttpResponseMessage resp;
+            try
+            {
+                resp = await _http.SendAsync(req);
+            }
+            catch
+            {
+                return (null, null);
+            }
+
+            if (!resp.IsSuccessStatusCode) return (null, null);
+
+            string json;
+            try
+            {
+                json = await resp.Content.ReadAsStringAsync();
+            }
+            catch
+            {
+                return (null, null);
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+
+                // ✅ Address
+                string? addressStr = null;
+                if (doc.RootElement.TryGetProperty("display_name", out var dn) &&
+                    dn.ValueKind == JsonValueKind.String)
+                {
+                    addressStr = dn.GetString();
+                }
+
+                // ✅ RegionCode (reuse logic cũ)
+                string? regionCode = null;
+
+                if (doc.RootElement.TryGetProperty("address", out var address))
+                {
+                    var provinceRaw =
+                        GetString(address, "state") ??
+                        GetString(address, "city") ??
+                        GetString(address, "province");
+
+                    var districtRaw =
+                        GetString(address, "city_district") ??
+                        GetString(address, "county") ??
+                        GetString(address, "district") ??
+                        GetString(address, "suburb") ??
+                        GetString(address, "town");
+
+                    if (!string.IsNullOrWhiteSpace(provinceRaw) &&
+                        !string.IsNullOrWhiteSpace(districtRaw))
+                    {
+                        var provinceCode = ToProvinceCodeVN(provinceRaw);
+                        var districtCode = ToDistrictCodeVN(districtRaw);
+
+                        regionCode = $"{provinceCode}-{districtCode}";
+                    }
+                }
+
+                return (addressStr, regionCode);
+            }
+            catch
+            {
+                return (null, null);
+            }
+        }
 
         private static string Shorten(string s, int maxLen)
         {

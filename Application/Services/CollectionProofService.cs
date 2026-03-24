@@ -15,15 +15,36 @@ namespace Application.Services
         private readonly IUnitOfWork _uow;
         private readonly ICitizenPointService _citizenPointService;
         private readonly INotificationService _notificationService;
+        private readonly IRegionCodeResolver _regionCodeResolver;
 
         public CollectionProofService(
             IUnitOfWork uow,
             ICitizenPointService citizenPointService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IRegionCodeResolver regionCodeResolver)
         {
             _uow = uow;
             _citizenPointService = citizenPointService;
             _notificationService = notificationService;
+            _regionCodeResolver = regionCodeResolver;
+        }
+
+        // ================= BASE QUERY =================
+        private IQueryable<CollectionProof> BuildFullQuery(IGenericRepository<CollectionProof> repo)
+        {
+            return repo.NoTrackingEntities
+                .Include(p => p.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                            .ThenInclude(w => w.WasteType)
+                .Include(p => p.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                            .ThenInclude(w => w.Images)
+                .Include(p => p.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                            .ThenInclude(w => w.WasteReport);
         }
 
         // ================= COLLECTOR: CREATE =================
@@ -56,7 +77,7 @@ namespace Application.Services
             await proofRepo.InsertAsync(entity);
             await _uow.SaveAsync();
 
-            // ================= Notification: Enterprise =================
+            // Notification
             var assignmentFull = await assignmentRepo.Entities
                 .Include(a => a.Request)
                 .FirstOrDefaultAsync(a => a.Id == dto.AssignmentId);
@@ -71,19 +92,7 @@ namespace Application.Services
                 );
             }
 
-            var created = await proofRepo.NoTrackingEntities
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteType)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.Images)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteReport)
+            var created = await BuildFullQuery(proofRepo)
                 .FirstAsync(p => p.Id == entity.Id && !p.IsDeleted);
 
             return Map(created);
@@ -94,24 +103,12 @@ namespace Application.Services
         {
             var repo = _uow.GetRepository<CollectionProof>();
 
-            var entity = await repo.NoTrackingEntities
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteType)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.Images)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteReport)
+            var entity = await BuildFullQuery(repo)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (entity == null) return null;
 
-            if (entity.Assignment.CollectorId != collectorUserId)
+            if (entity.Assignment?.CollectorId != collectorUserId)
                 return null;
 
             return Map(entity);
@@ -122,19 +119,7 @@ namespace Application.Services
         {
             var repo = _uow.GetRepository<CollectionProof>();
 
-            var query = repo.NoTrackingEntities
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteType)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.Images)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteReport)
+            var query = BuildFullQuery(repo)
                 .Where(p => !p.IsDeleted && p.Assignment.CollectorId == collectorUserId);
 
             if (filter.AssignmentId.HasValue)
@@ -144,7 +129,9 @@ namespace Application.Services
                 query = query.Where(x => x.ReviewStatus == filter.ReviewStatus.Value);
 
             var total = await query.CountAsync();
-            var page = PaginationHelper.ValidateAndAdjustPageNumber(filter.PageNumber, total, filter.PageSize);
+
+            var page = PaginationHelper.ValidateAndAdjustPageNumber(
+                filter.PageNumber, total, filter.PageSize);
 
             var list = await query
                 .OrderByDescending(x => x.CreatedTime)
@@ -152,8 +139,12 @@ namespace Application.Services
                 .Take(filter.PageSize)
                 .ToListAsync();
 
-            var dtos = list.Select(Map).ToList();
-            return new PaginatedList<CollectionProofDto>(dtos, total, page, filter.PageSize);
+            return new PaginatedList<CollectionProofDto>(
+                list.Select(Map).ToList(),
+                total,
+                page,
+                filter.PageSize
+            );
         }
 
         // ================= ENTERPRISE: GET BY ID =================
@@ -161,46 +152,23 @@ namespace Application.Services
         {
             var repo = _uow.GetRepository<CollectionProof>();
 
-            var entity = await repo.NoTrackingEntities
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteType)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.Images)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteReport)
+            var entity = await BuildFullQuery(repo)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (entity == null) return null;
 
-            if (entity.Assignment.Request.EnterpriseId != enterpriseId)
+            if (entity.Assignment?.Request?.EnterpriseId != enterpriseId)
                 return null;
 
             return Map(entity);
         }
+
         // ================= ENTERPRISE: GET PAGED =================
         public async Task<PaginatedList<CollectionProofDto>> GetPagedEnterpriseAsync(Guid enterpriseId, CollectionProofFilterDto filter)
         {
             var repo = _uow.GetRepository<CollectionProof>();
 
-            var query = repo.NoTrackingEntities
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteType)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.Images)
-                .Include(p => p.Assignment)
-                    .ThenInclude(a => a.Request)
-                        .ThenInclude(r => r.WasteReportWaste)
-                            .ThenInclude(w => w.WasteReport)
+            var query = BuildFullQuery(repo)
                 .Where(p => !p.IsDeleted &&
                             p.Assignment.Request.EnterpriseId == enterpriseId);
 
@@ -211,6 +179,7 @@ namespace Application.Services
                 query = query.Where(x => x.ReviewStatus == filter.ReviewStatus.Value);
 
             var total = await query.CountAsync();
+
             var page = PaginationHelper.ValidateAndAdjustPageNumber(
                 filter.PageNumber, total, filter.PageSize);
 
@@ -220,10 +189,8 @@ namespace Application.Services
                 .Take(filter.PageSize)
                 .ToListAsync();
 
-            var dtos = list.Select(Map).ToList();
-
             return new PaginatedList<CollectionProofDto>(
-                dtos,
+                list.Select(Map).ToList(),
                 total,
                 page,
                 filter.PageSize
@@ -244,18 +211,16 @@ namespace Application.Services
 
             if (entity == null) return false;
 
-            if (entity.Assignment.Request.EnterpriseId != enterpriseId)
+            if (entity.Assignment?.Request?.EnterpriseId != enterpriseId)
                 return false;
 
-            var newStatus = dto.Status;
-
-            if (newStatus == ProofReviewStatus.Pending)
+            if (dto.Status == ProofReviewStatus.Pending)
                 return false;
 
             if (entity.ReviewStatus != ProofReviewStatus.Pending)
                 return false;
 
-            entity.ReviewStatus = newStatus;
+            entity.ReviewStatus = dto.Status;
             entity.ReviewedBy = reviewerUserId;
             entity.ReviewedAt = DateTimeOffset.UtcNow;
             entity.ReviewNote = dto.ReviewNote;
@@ -263,7 +228,7 @@ namespace Application.Services
 
             Guid? wasteReportId = null;
 
-            if (newStatus == ProofReviewStatus.Approved)
+            if (dto.Status == ProofReviewStatus.Approved)
             {
                 entity.Assignment.Status = AssignmentStatus.Completed;
                 entity.Assignment.LastUpdatedTime = DateTimeOffset.UtcNow;
@@ -271,9 +236,8 @@ namespace Application.Services
                 entity.Assignment.Request.Status = CollectionRequestStatus.Completed;
                 entity.Assignment.Request.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-                var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport;
-                if (wasteReport == null)
-                    throw new Exception("WasteReport not found.");
+                var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport
+                    ?? throw new Exception("WasteReport not found.");
 
                 wasteReport.Status = WasteReportStatus.Verified;
                 wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
@@ -284,7 +248,7 @@ namespace Application.Services
             repo.Update(entity);
             await _uow.SaveAsync();
 
-            // ================= Notification: Collector =================
+            // Notification Collector
             await _notificationService.CreateAsync(
                 entity.Assignment.CollectorId,
                 NotificationConstants.Types.PROOF_VERIFIED,
@@ -292,7 +256,7 @@ namespace Application.Services
                 entity.Id
             );
 
-            if (newStatus == ProofReviewStatus.Approved && wasteReportId.HasValue)
+            if (dto.Status == ProofReviewStatus.Approved && wasteReportId.HasValue)
             {
                 await _citizenPointService.AwardPointsForVerifiedReportAsync(wasteReportId.Value);
 
@@ -348,6 +312,7 @@ namespace Application.Services
                 WasteTypeId = item?.WasteTypeId ?? Guid.Empty,
                 WasteTypeName = item?.WasteType?.Name,
                 RequestNote = item?.Note,
+
                 ImageUrls = item?.Images?
                     .Where(i => !i.IsDeleted)
                     .Select(i => i.ImageUrl)
