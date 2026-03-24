@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Contract.DTOs
 {
@@ -16,8 +12,10 @@ namespace Application.Contract.DTOs
         public string? CollectorEmail { get; set; }
 
         public Guid EnterpriseId { get; set; }
+        public string? EnterpriseName { get; set; }
 
         public bool IsActive { get; set; }
+        public bool IsProfileCompleted { get; set; }
 
         public DateTimeOffset CreatedTime { get; set; }
     }

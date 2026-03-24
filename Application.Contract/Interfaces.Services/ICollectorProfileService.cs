@@ -23,5 +23,6 @@ namespace Application.Contract.Interfaces.Services
         Task<bool> UpdateAsync(Guid enterpriseId, Guid id, UpdateCollectorProfileDto dto);
 
         Task<bool> DeleteAsync(Guid enterpriseId, Guid id);
+        Task<CollectorProfileDto> GetMyCollectorProfileAsync(Guid userId);
     }
 }

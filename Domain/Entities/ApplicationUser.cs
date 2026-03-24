@@ -16,6 +16,9 @@ namespace Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
 
+        public string? AvatarUrl { get; set; }
+        public string? AvatarPublicId { get; set; }
+
         public Guid? WardId { get; set; }
         public Ward? Ward { get; set; }
 

@@ -3,12 +3,12 @@ using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Application.Contract.Paggings;
 using Core.Utils;
+using Domain.Base;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Application.Services
@@ -46,6 +46,7 @@ namespace Application.Services
 
             var entity = await repo.NoTrackingEntities
                 .Include(x => x.Collector)
+                .Include(x => x.Enterprise)
                 .FirstOrDefaultAsync(x =>
                     x.Id == id &&
                     x.EnterpriseId == enterpriseId &&
@@ -60,6 +61,7 @@ namespace Application.Services
 
             var list = await repo.NoTrackingEntities
                 .Include(x => x.Collector)
+                .Include(x => x.Enterprise)
                 .Where(x => x.EnterpriseId == enterpriseId && !x.IsDeleted)
                 .ToListAsync();
 
@@ -74,6 +76,7 @@ namespace Application.Services
 
             var query = repo.NoTrackingEntities
                 .Include(x => x.Collector)
+                .Include(x => x.Enterprise)
                 .Where(x => x.EnterpriseId == enterpriseId && !x.IsDeleted);
 
             if (!string.IsNullOrWhiteSpace(filter.Keyword))
@@ -146,16 +149,39 @@ namespace Application.Services
             return true;
         }
 
+        public async Task<CollectorProfileDto> GetMyCollectorProfileAsync(Guid userId)
+        {
+            var repo = _uow.GetRepository<CollectorProfile>();
+
+            var entity = await repo.NoTrackingEntities
+                .Include(x => x.Collector)
+                .Include(x => x.Enterprise)
+                .FirstOrDefaultAsync(x =>
+                    x.CollectorId == userId &&
+                    !x.IsDeleted);
+
+            if (entity == null)
+            {
+                throw new BaseException.NotFoundException(
+                    "collector_profile_not_found",
+                    "Collector profile not found.");
+            }
+
+            return Map(entity);
+        }
+
         private static CollectorProfileDto Map(CollectorProfile x)
         {
             return new CollectorProfileDto
             {
                 Id = x.Id,
                 CollectorId = x.CollectorId,
-                CollectorName = x.Collector?.UserName,
+                CollectorName = x.Collector?.FullName ?? x.Collector?.UserName,
                 CollectorEmail = x.Collector?.Email,
                 EnterpriseId = x.EnterpriseId,
+                EnterpriseName = x.Enterprise?.Name,
                 IsActive = x.IsActive,
+                IsProfileCompleted = x.IsProfileCompleted,
                 CreatedTime = x.CreatedTime
             };
         }

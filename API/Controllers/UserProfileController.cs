@@ -60,6 +60,26 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Upload current user's avatar
+        /// </summary>
+        [HttpPost("me/avatar")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadMyAvatar([FromForm] UploadAvatarRequestDto dto)
+        {
+            var userId = GetCurrentUserId();
+            var data = await _userProfileService.UploadAvatarAsync(userId, dto.File);
+
+            var response = new BaseResponse<UserProfileDto>(
+                StatusCodeHelper.OK,
+                StatusCodeHelper.OK.Name(),
+                data,
+                "Avatar uploaded successfully."
+            );
+
+            return Ok(response);
+        }
+
+        /// <summary>
         /// Get user profile by ID (Admin only)
         /// </summary>
         [HttpGet("{userId:guid}")]
