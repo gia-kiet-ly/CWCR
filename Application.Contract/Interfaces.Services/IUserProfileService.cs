@@ -1,8 +1,6 @@
 ﻿using Application.Contract.DTOs;
+using Microsoft.AspNetCore.Http;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Application.Contract.Interfaces.Services
@@ -11,5 +9,6 @@ namespace Application.Contract.Interfaces.Services
     {
         Task<UserProfileDto> GetProfileAsync(Guid userId);
         Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateUserProfileDto dto);
+        Task<UserProfileDto> UploadAvatarAsync(Guid userId, IFormFile file);
     }
 }

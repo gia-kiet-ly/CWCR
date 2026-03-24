@@ -43,6 +43,7 @@ namespace Application
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IUserProfileService, UserProfileService>();
+            services.AddScoped<IDashboardService, DashboardService>();
             return services;
         }
     }

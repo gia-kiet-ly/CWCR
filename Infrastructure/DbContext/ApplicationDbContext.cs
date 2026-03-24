@@ -66,6 +66,12 @@ namespace Infrastructure.DbContext
             // ApplicationUser Ward/District Configuration
             builder.Entity<ApplicationUser>(entity =>
             {
+                entity.Property(u => u.AvatarUrl)
+                    .HasMaxLength(1000);
+
+                entity.Property(u => u.AvatarPublicId)
+                    .HasMaxLength(255);
+
                 entity.HasOne(u => u.Ward)
                     .WithMany()
                     .HasForeignKey(u => u.WardId)

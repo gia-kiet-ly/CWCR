@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Http;
+using System;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Contract.DTOs
 {
@@ -13,6 +10,8 @@ namespace Application.Contract.DTOs
         public string Email { get; set; } = default!;
         public string? FullName { get; set; }
         public string? PhoneNumber { get; set; }
+
+        public string? AvatarUrl { get; set; }
 
         public Guid? WardId { get; set; }
         public string? WardName { get; set; }
@@ -37,5 +36,11 @@ namespace Application.Contract.DTOs
 
         public Guid? WardId { get; set; }
         public Guid? DistrictId { get; set; }
+    }
+
+    public class UploadAvatarRequestDto
+    {
+        [Required]
+        public IFormFile File { get; set; } = default!;
     }
 }

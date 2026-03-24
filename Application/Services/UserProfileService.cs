@@ -3,13 +3,9 @@ using Application.Contract.Interfaces.Infrastructure;
 using Application.Contract.Interfaces.Services;
 using Domain.Base;
 using Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Services
 {
@@ -17,13 +13,16 @@ namespace Application.Services
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IUnitOfWork _uow;
+        private readonly IImageService _imageService;
 
         public UserProfileService(
             UserManager<ApplicationUser> userManager,
-            IUnitOfWork uow)
+            IUnitOfWork uow,
+            IImageService imageService)
         {
             _userManager = userManager;
             _uow = uow;
+            _imageService = imageService;
         }
 
         public async Task<UserProfileDto> GetProfileAsync(Guid userId)
@@ -48,6 +47,7 @@ namespace Application.Services
                 Email = user.Email!,
                 FullName = user.FullName,
                 PhoneNumber = user.PhoneNumber,
+                AvatarUrl = user.AvatarUrl,
                 WardId = user.WardId,
                 WardName = user.Ward?.Name,
                 DistrictId = user.DistrictId,
@@ -73,13 +73,11 @@ namespace Application.Services
                 throw new BaseException.NotFoundException("user_not_found", "User not found.");
             }
 
-            // Validate Ward/District if provided
             if (dto.WardId.HasValue || dto.DistrictId.HasValue)
             {
                 await ValidateLocationAsync(dto.WardId, dto.DistrictId);
             }
 
-            // Update fields
             if (!string.IsNullOrWhiteSpace(dto.FullName))
             {
                 user.FullName = dto.FullName;
@@ -90,7 +88,6 @@ namespace Application.Services
                 user.PhoneNumber = dto.PhoneNumber;
             }
 
-            // Update Ward/District
             user.WardId = dto.WardId;
             user.DistrictId = dto.DistrictId;
             user.UpdatedAt = DateTime.UtcNow;
@@ -108,7 +105,6 @@ namespace Application.Services
                 throw new BaseException.ValidationException(errors);
             }
 
-            // Reload user with relationships
             user = await _userManager.Users
                 .Include(u => u.Ward)
                     .ThenInclude(w => w.District)
@@ -124,6 +120,78 @@ namespace Application.Services
                 Email = user.Email!,
                 FullName = user.FullName,
                 PhoneNumber = user.PhoneNumber,
+                AvatarUrl = user.AvatarUrl,
+                WardId = user.WardId,
+                WardName = user.Ward?.Name,
+                DistrictId = user.DistrictId,
+                DistrictName = user.District?.Name ?? user.Ward?.District?.Name,
+                Role = role,
+                EmailConfirmed = user.EmailConfirmed,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
+            };
+        }
+
+        public async Task<UserProfileDto> UploadAvatarAsync(Guid userId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                throw new BaseException.BadRequestException(
+                    "invalid_file",
+                    "Avatar file is required.");
+            }
+
+            var user = await _userManager.Users
+                .Include(u => u.Ward)
+                    .ThenInclude(w => w.District)
+                .Include(u => u.District)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                throw new BaseException.NotFoundException("user_not_found", "User not found.");
+            }
+
+            await using var stream = file.OpenReadStream();
+
+            await _imageService.CheckSafeSearchAsync(stream);
+            stream.Position = 0;
+
+            var uploadResult = await _imageService.UploadImageAsync(stream, file.FileName);
+
+            if (!string.IsNullOrWhiteSpace(user.AvatarPublicId))
+            {
+                await _imageService.DeleteImageAsync(user.AvatarPublicId);
+            }
+
+            user.AvatarUrl = uploadResult.Url;
+            user.AvatarPublicId = uploadResult.PublicId;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors
+                    .Select(e => new KeyValuePair<string, ICollection<string>>(
+                        e.Code,
+                        new List<string> { e.Description }))
+                    .ToList();
+
+                throw new BaseException.ValidationException(errors);
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "Unknown";
+
+            return new UserProfileDto
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                AvatarUrl = user.AvatarUrl,
                 WardId = user.WardId,
                 WardName = user.Ward?.Name,
                 DistrictId = user.DistrictId,
@@ -150,7 +218,6 @@ namespace Application.Services
                         $"Ward with ID {wardId} does not exist.");
                 }
 
-                // If both wardId and districtId are provided, verify they match
                 if (districtId.HasValue && ward.DistrictId != districtId.Value)
                 {
                     throw new BaseException.BadRequestException(
