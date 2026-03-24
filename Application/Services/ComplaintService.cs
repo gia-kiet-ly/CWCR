@@ -26,17 +26,36 @@ namespace Application.Services
 
             var complaintRepo = _unitOfWork.GetRepository<Complaint>();
             var reportRepo = _unitOfWork.GetRepository<WasteReport>();
+            var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
 
+            // 1. Validate report
             var report = await reportRepo.GetByIdAsync(dto.ReportId);
-
             if (report == null || report.IsDeleted)
                 throw new Exception("Report not found");
 
+            // 2. Resolve CollectionRequest từ WasteReport
+            var request = await requestRepo.NoTrackingEntities
+                .Include(x => x.WasteReportWaste)
+                .Where(x =>
+                    x.WasteReportWaste.WasteReportId == dto.ReportId &&
+                    !x.IsDeleted &&
+                    (
+                        x.Status == CollectionRequestStatus.Rejected ||
+                        x.Status == CollectionRequestStatus.Completed
+                    )
+                )
+                .OrderByDescending(x => x.CreatedTime)
+                .FirstOrDefaultAsync();
+
+            if (request == null)
+                throw new Exception("No active collection request found for this report");
+
+            // 3. Create complaint
             var complaint = new Complaint
             {
                 ComplainantId = complainantId,
                 ReportId = dto.ReportId,
-                CollectionRequestId = dto.CollectionRequestId,
+                CollectionRequestId = request.Id, // 🔥 auto resolve
                 Type = type,
                 Status = ComplaintStatus.Open,
                 Content = dto.Content
