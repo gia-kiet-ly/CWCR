@@ -96,14 +96,17 @@ namespace API.Controllers
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
 
-            var uploaded = new List<object>();
-            var errors = new List<string>();
+            var results = new List<object>();
 
             foreach (var file in files)
             {
                 if (file == null || file.Length == 0)
                 {
-                    errors.Add("Empty file skipped.");
+                    results.Add(new
+                    {
+                        FileName = file?.FileName,
+                        Error = "Empty file."
+                    });
                     continue;
                 }
 
@@ -111,13 +114,21 @@ namespace API.Controllers
 
                 if (!allowedExtensions.Contains(fileExtension))
                 {
-                    errors.Add($"{file.FileName}: Invalid format.");
+                    results.Add(new
+                    {
+                        FileName = file.FileName,
+                        Error = "Invalid format."
+                    });
                     continue;
                 }
 
                 if (file.Length > 10 * 1024 * 1024)
                 {
-                    errors.Add($"{file.FileName}: Exceeds 10MB.");
+                    results.Add(new
+                    {
+                        FileName = file.FileName,
+                        Error = "Exceeds 10MB."
+                    });
                     continue;
                 }
 
@@ -125,26 +136,55 @@ namespace API.Controllers
                 {
                     using var stream = file.OpenReadStream();
 
-                    var result = await _imageService.UploadImageAsync(stream, file.FileName);
+                    // ===== 1. SafeSearch =====
+                    await _imageService.CheckSafeSearchAsync(stream);
+                    stream.Position = 0;
 
-                    uploaded.Add(new
+                    // ===== 2. Analyze =====
+                    var suggestedCategory = await _imageService.AnalyzeWasteCategoryAsync(stream);
+                    stream.Position = 0;
+
+                    // ===== 3. Map WasteType =====
+                    Guid? suggestedWasteTypeId = null;
+
+                    if (suggestedCategory.HasValue)
                     {
-                        result.Url,
-                        result.PublicId
+                        var wasteTypeRepo = _unitOfWork.GetRepository<WasteType>();
+
+                        var matched = await wasteTypeRepo.NoTrackingEntities
+                            .Where(x => x.Category == suggestedCategory.Value && x.IsActive && !x.IsDeleted)
+                            .FirstOrDefaultAsync();
+
+                        suggestedWasteTypeId = matched?.Id;
+                    }
+
+                    // ===== 4. Upload =====
+                    var upload = await _imageService.UploadImageAsync(stream, file.FileName);
+
+                    results.Add(new
+                    {
+                        FileName = file.FileName,
+                        upload.Url,
+                        upload.PublicId,
+                        SuggestedCategory = suggestedCategory?.ToString(),
+                        SuggestedWasteTypeId = suggestedWasteTypeId
                     });
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"{file.FileName}: {ex.Message}");
+                    results.Add(new
+                    {
+                        FileName = file.FileName,
+                        Error = ex.Message
+                    });
                 }
             }
 
             return Ok(new
             {
-                Uploaded = uploaded,
-                Errors = errors,
-                SuccessCount = uploaded.Count,
-                FailureCount = errors.Count
+                Results = results,
+                SuccessCount = results.Count(x => x.GetType().GetProperty("Url") != null),
+                FailureCount = results.Count(x => x.GetType().GetProperty("Error") != null)
             });
         }
 
