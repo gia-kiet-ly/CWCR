@@ -31,5 +31,7 @@ namespace Application.Contract.Interfaces.Services
 
         // Cho phép update điểm manually (admin action).
         Task<CitizenPointDto> UpdatePointAsync(Guid citizenId, UpdateCitizenPointRequest request);
+        // thêm vào interface
+        Task AwardPointsForResolvedComplaintAsync(Guid complaintId);
     }
 }

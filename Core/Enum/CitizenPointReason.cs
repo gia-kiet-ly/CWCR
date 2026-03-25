@@ -9,6 +9,7 @@ namespace Core.Enum
     public enum CitizenPointReason
     {
         WasteCollectionCompleted = 1,
-        ManualAdjustment = 2
+        ManualAdjustment = 2,
+        ComplaintResolved = 3   // ← thêm mới
     }
 }
