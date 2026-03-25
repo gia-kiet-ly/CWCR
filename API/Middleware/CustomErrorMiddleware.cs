@@ -75,17 +75,13 @@ namespace API.Middleware
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            var isDev = context.RequestServices
-                .GetRequiredService<IWebHostEnvironment>()
-                .IsDevelopment();
-
             var response = new
             {
                 code = "INTERNAL_ERROR",
                 message = "An unexpected error occurred.",
-                detail = isDev ? ex.Message : null,
-                inner = isDev ? ex.InnerException?.Message : null,
-                inner2 = isDev ? ex.InnerException?.InnerException?.Message : null
+                detail = ex.Message,                          // ← bỏ isDev check
+                inner = ex.InnerException?.Message,
+                inner2 = ex.InnerException?.InnerException?.Message
             };
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
