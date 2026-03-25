@@ -507,5 +507,53 @@ namespace Application.Services
                 CreatedTime = citizenPoint.CreatedTime
             };
         }
+
+        public async Task AwardPointsForResolvedComplaintAsync(Guid complaintId)
+        {
+            var complaintRepo = _uow.GetRepository<Complaint>();
+            var pointRepo = _uow.GetRepository<CitizenPoint>();
+            var historyRepo = _uow.GetRepository<CitizenPointHistory>();
+
+            var complaint = await complaintRepo.GetByIdAsync(complaintId);
+            if (complaint == null)
+                throw new Exception("Complaint not found.");
+
+            // Chống cộng điểm 2 lần
+            var alreadyAwarded = await historyRepo.Entities
+                .AnyAsync(h =>
+                    h.CitizenId == complaint.ComplainantId &&
+                    h.Reason == CitizenPointReason.ComplaintResolved &&
+                    h.Description!.Contains(complaintId.ToString()));
+
+            if (alreadyAwarded)
+                return;
+
+            var citizenPoint = await pointRepo.Entities
+                .FirstOrDefaultAsync(p => p.CitizenId == complaint.ComplainantId);
+
+            if (citizenPoint == null)
+            {
+                citizenPoint = new CitizenPoint
+                {
+                    CitizenId = complaint.ComplainantId,
+                    TotalPoints = 0
+                };
+                await pointRepo.InsertAsync(citizenPoint);
+            }
+
+            citizenPoint.TotalPoints += 10;
+            citizenPoint.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+            await historyRepo.InsertAsync(new CitizenPointHistory
+            {
+                CitizenId = complaint.ComplainantId,
+                WasteReportId = null,
+                Points = 10,
+                Reason = CitizenPointReason.ComplaintResolved,
+                Description = $"Complaint resolved: {complaintId}"
+            });
+
+            await _uow.SaveAsync();
+        }
     }
 }

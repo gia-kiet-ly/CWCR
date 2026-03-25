@@ -11,10 +11,12 @@ namespace Application.Services
     public class ComplaintService : IComplaintService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICitizenPointService _citizenPointService;
 
-        public ComplaintService(IUnitOfWork unitOfWork)
+        public ComplaintService(IUnitOfWork unitOfWork, ICitizenPointService citizenPointService)
         {
             _unitOfWork = unitOfWork;
+            _citizenPointService = citizenPointService;
         }
         // ================= CREATE =================
         public async Task<ComplaintResponseDto> CreateAsync(
@@ -199,7 +201,10 @@ namespace Application.Services
 
             repo.Update(complaint);
             await _unitOfWork.SaveAsync();
-
+            if (status == ComplaintStatus.Resolved)
+            {
+                await _citizenPointService.AwardPointsForResolvedComplaintAsync(complaint.Id);
+            }
             return MapToDto(complaint);
         }
 
