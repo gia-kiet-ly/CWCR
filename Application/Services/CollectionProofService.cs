@@ -241,8 +241,11 @@ namespace Application.Services
 
                 wasteReport.Status = WasteReportStatus.Verified;
                 wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
-
                 wasteReportId = wasteReport.Id;
+
+                // ← THÊM DÒNG NÀY
+                var wasteReportRepo = _uow.GetRepository<WasteReport>();
+                wasteReportRepo.Update(wasteReport);
             }
 
             repo.Update(entity);
