@@ -29,6 +29,9 @@
 
             // System
             public const string SYSTEM_ANNOUNCEMENT = "SYSTEM_ANNOUNCEMENT";
+
+            public const string PROOF_REJECTED = "PROOF_REJECTED";
+
         }
 
         /// <summary>
@@ -134,7 +137,14 @@
                 "Thông báo hệ thống",
                 null,
                 "megaphone"
-            )
+            ),
+
+            [Types.PROOF_REJECTED] = new(
+                "Proof Rejected",
+                "Ảnh chứng minh bị từ chối",
+                "Ảnh chứng minh của bạn không được chấp nhận. Vui lòng gửi lại.",
+                "x_circle"
+            ),
         };
 
         public class NotifTypeDefinition

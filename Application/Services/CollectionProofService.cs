@@ -220,63 +220,79 @@ namespace Application.Services
             if (entity.ReviewStatus != ProofReviewStatus.Pending)
                 return false;
 
-            entity.ReviewStatus = dto.Status;
-            entity.ReviewedBy = reviewerUserId;
-            entity.ReviewedAt = DateTimeOffset.UtcNow;
-            entity.ReviewNote = dto.ReviewNote;
-            entity.LastUpdatedTime = DateTimeOffset.UtcNow;
-
-            Guid? wasteReportId = null;
-
-            if (dto.Status == ProofReviewStatus.Approved)
+            await _uow.BeginTransactionAsync();  // ← không có var, không assign
+            try
             {
-                entity.Assignment.Status = AssignmentStatus.Completed;
-                entity.Assignment.LastUpdatedTime = DateTimeOffset.UtcNow;
+                entity.ReviewStatus = dto.Status;
+                entity.ReviewedBy = reviewerUserId;
+                entity.ReviewedAt = DateTimeOffset.UtcNow;
+                entity.ReviewNote = dto.ReviewNote;
+                entity.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-                entity.Assignment.Request.Status = CollectionRequestStatus.Completed;
-                entity.Assignment.Request.LastUpdatedTime = DateTimeOffset.UtcNow;
+                Guid? wasteReportId = null;
 
-                var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport
-                    ?? throw new Exception("WasteReport not found.");
-
-                wasteReport.Status = WasteReportStatus.Verified;
-                wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
-                wasteReportId = wasteReport.Id;
-
-                // ← THÊM DÒNG NÀY
-                var wasteReportRepo = _uow.GetRepository<WasteReport>();
-                wasteReportRepo.Update(wasteReport);
-            }
-
-            repo.Update(entity);
-            await _uow.SaveAsync();
-
-            // Notification Collector
-            await _notificationService.CreateAsync(
-                entity.Assignment.CollectorId,
-                NotificationConstants.Types.PROOF_VERIFIED,
-                NotificationConstants.ReferenceTypes.COLLECTION_PROOF,
-                entity.Id
-            );
-
-            if (dto.Status == ProofReviewStatus.Approved && wasteReportId.HasValue)
-            {
-                await _citizenPointService.AwardPointsForVerifiedReportAsync(wasteReportId.Value);
-
-                var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport;
-
-                if (wasteReport != null)
+                if (dto.Status == ProofReviewStatus.Approved)
                 {
-                    await _notificationService.CreateAsync(
-                        wasteReport.CitizenId,
-                        NotificationConstants.Types.PROOF_VERIFIED,
-                        NotificationConstants.ReferenceTypes.WASTE_REPORT,
-                        wasteReport.Id
-                    );
-                }
-            }
+                    entity.Assignment!.Status = AssignmentStatus.Completed;
+                    entity.Assignment.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-            return true;
+                    entity.Assignment.Request!.Status = CollectionRequestStatus.Completed;
+                    entity.Assignment.Request.LastUpdatedTime = DateTimeOffset.UtcNow;
+
+                    var wasteReport = entity.Assignment.Request.WasteReportWaste?.WasteReport
+                        ?? throw new Exception("WasteReport not found.");
+
+                    wasteReport.Status = WasteReportStatus.Verified;
+                    wasteReport.LastUpdatedTime = DateTimeOffset.UtcNow;
+                    wasteReportId = wasteReport.Id;
+
+                    var wasteReportRepo = _uow.GetRepository<WasteReport>();
+                    wasteReportRepo.Update(wasteReport);
+                }
+                else if (dto.Status == ProofReviewStatus.Rejected)
+                {
+                    entity.Assignment!.Status = AssignmentStatus.Collected;
+                    entity.Assignment.LastUpdatedTime = DateTimeOffset.UtcNow;
+                }
+
+                repo.Update(entity);
+                await _uow.SaveAsync();
+
+                var notifType = dto.Status == ProofReviewStatus.Approved
+                    ? NotificationConstants.Types.PROOF_VERIFIED
+                    : NotificationConstants.Types.PROOF_REJECTED;
+
+                await _notificationService.CreateAsync(
+                    entity.Assignment!.CollectorId,
+                    notifType,
+                    NotificationConstants.ReferenceTypes.COLLECTION_PROOF,
+                    entity.Id
+                );
+
+                if (dto.Status == ProofReviewStatus.Approved && wasteReportId.HasValue)
+                {
+                    await _citizenPointService.AwardPointsForVerifiedReportAsync(wasteReportId.Value);
+
+                    var wasteReport = entity.Assignment.Request!.WasteReportWaste?.WasteReport;
+                    if (wasteReport != null)
+                    {
+                        await _notificationService.CreateAsync(
+                            wasteReport.CitizenId,
+                            NotificationConstants.Types.PROOF_VERIFIED,
+                            NotificationConstants.ReferenceTypes.WASTE_REPORT,
+                            wasteReport.Id
+                        );
+                    }
+                }
+
+                await _uow.CommitTransactionAsync();  // ← dùng method của UnitOfWork
+                return true;
+            }
+            catch
+            {
+                await _uow.RollbackTransactionAsync();  // ← dùng method của UnitOfWork
+                throw;
+            }
         }
 
         private static CollectionProofDto Map(CollectionProof x)
