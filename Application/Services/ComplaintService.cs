@@ -133,8 +133,8 @@ namespace Application.Services
             if (complaint == null)
                 return null;
 
-            if (!isAdmin && complaint.ComplainantId != currentUserId)
-                throw new Exception("Unauthorized");
+            //if (!isAdmin && complaint.ComplainantId != currentUserId)
+            //    throw new Exception("Unauthorized");
 
             return MapToDto(complaint);
         }
