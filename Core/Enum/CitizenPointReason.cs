@@ -10,6 +10,7 @@ namespace Core.Enum
     {
         WasteCollectionCompleted = 1,
         ManualAdjustment = 2,
-        ComplaintResolved = 3   // ← thêm mới
+        ComplaintResolved = 3,
+        RewardRedeemed = 4
     }
 }

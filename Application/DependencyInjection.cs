@@ -44,6 +44,7 @@ namespace Application
             services.AddScoped<IUserManagementService, UserManagementService>();
             services.AddScoped<IUserProfileService, UserProfileService>();
             services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<IRewardService, RewardService>();
             return services;
         }
     }

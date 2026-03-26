@@ -49,6 +49,11 @@ namespace Infrastructure.DbContext
         // Refresh Token
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+
+        // Rewards
+        public DbSet<Reward> Rewards { get; set; }
+        public DbSet<RewardRedemption> RewardRedemptions { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -651,6 +656,60 @@ namespace Infrastructure.DbContext
                 entity.HasIndex(e => e.CitizenId);
                 entity.HasIndex(e => e.CreatedTime);
                 entity.HasIndex(e => e.WasteReportId);
+            });
+
+            // ======================== Reward Configuration ========================
+            builder.Entity<Reward>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Description)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.ImageUrl)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.PointCost).IsRequired();
+
+                entity.Property(e => e.Stock).IsRequired();
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.ToTable(t =>
+                    t.HasCheckConstraint("CK_Reward_PointCost", "[PointCost] > 0"));
+
+                entity.ToTable(t =>
+                    t.HasCheckConstraint("CK_Reward_Stock", "[Stock] >= 0"));
+
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            // ======================== RewardRedemption Configuration ========================
+            builder.Entity<RewardRedemption>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.Citizen)
+                    .WithMany()
+                    .HasForeignKey(e => e.CitizenId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Reward)
+                    .WithMany(r => r.Redemptions)
+                    .HasForeignKey(e => e.RewardId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(e => e.PointCostSnapshot)
+                    .IsRequired();
+
+                entity.HasIndex(e => e.CitizenId);
+                entity.HasIndex(e => e.RewardId);
+                entity.HasIndex(e => e.CreatedTime);
             });
         }
     }
