@@ -5,11 +5,6 @@ using Core.Enum;
 using Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Services
 {
@@ -29,6 +24,7 @@ namespace Application.Services
             _roleManager = roleManager;
         }
 
+        // ======================== ADMIN ========================
         public async Task<AdminDashboardDto> GetAdminDashboardAsync()
         {
             var dto = new AdminDashboardDto();
@@ -70,15 +66,11 @@ namespace Application.Services
             foreach (var role in roles)
             {
                 var count = 0;
-
                 foreach (var user in users)
                 {
                     if (await _userManager.IsInRoleAsync(user, role.Name!))
-                    {
                         count++;
-                    }
                 }
-
                 dto.UsersByRole.Add(new DashboardChartItemDto
                 {
                     Label = role.Name!,
@@ -124,6 +116,7 @@ namespace Application.Services
             return dto;
         }
 
+        // ======================== CITIZEN ========================
         public async Task<CitizenDashboardDto> GetCitizenDashboardAsync(Guid citizenUserId)
         {
             var dto = new CitizenDashboardDto();
@@ -214,6 +207,7 @@ namespace Application.Services
             return dto;
         }
 
+        // ======================== ENTERPRISE ========================
         public async Task<EnterpriseDashboardDto> GetEnterpriseDashboardAsync(Guid enterpriseUserId)
         {
             var dto = new EnterpriseDashboardDto();
@@ -221,6 +215,7 @@ namespace Application.Services
             var enterpriseRepo = _uow.GetRepository<RecyclingEnterprise>();
             var requestRepo = _uow.GetRepository<CollectionRequest>();
             var proofRepo = _uow.GetRepository<CollectionProof>();
+            var capRepo = _uow.GetRepository<EnterpriseWasteCapability>();
 
             var enterprise = await enterpriseRepo.Entities
                 .FirstOrDefaultAsync(x => !x.IsDeleted && x.UserId == enterpriseUserId);
@@ -229,7 +224,11 @@ namespace Application.Services
                 return dto;
 
             var enterpriseId = enterprise.Id;
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var todayStart = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+            var todayEnd = todayStart.AddDays(1);
 
+            // ======= Summary cũ =======
             dto.Summary.TotalRequestsReceived = await requestRepo.Entities
                 .CountAsync(x => !x.IsDeleted && x.EnterpriseId == enterpriseId);
 
@@ -276,6 +275,95 @@ namespace Application.Services
                         (decimal)dto.Summary.CompletedRequests * 100 / dto.Summary.TotalRequestsReceived,
                         2);
 
+            // ======= 🆕 Capa hôm nay (từ EnterpriseWasteCapability) =======
+            var capabilities = await capRepo.Entities
+                .Include(x => x.WasteType)
+                .Where(x => !x.IsDeleted && x.EnterpriseId == enterpriseId)
+                .ToListAsync();
+
+            dto.Summary.TodayTotalCapacity = capabilities.Sum(x => x.DailyCapacityKg);
+
+            // Nếu LastResetDate != hôm nay → AssignedTodayCount thực tế = 0
+            dto.Summary.TodayAssignedCount = capabilities
+                .Sum(x => x.LastResetDate == today ? x.AssignedTodayCount : 0);
+
+            dto.Summary.TodayRemainingCapacity =
+                dto.Summary.TodayTotalCapacity - dto.Summary.TodayAssignedCount;
+
+            // CapacityByWasteType chart (bar chart: mỗi loại rác có Daily vs Assigned)
+            dto.CapacityByWasteType = capabilities.Select(x => new CapacityByWasteTypeDto
+            {
+                WasteTypeName = x.WasteType?.Name ?? string.Empty,
+                DailyCapacity = x.DailyCapacityKg,
+                AssignedToday = x.LastResetDate == today ? x.AssignedTodayCount : 0,
+                Remaining = x.DailyCapacityKg - (x.LastResetDate == today ? x.AssignedTodayCount : 0)
+            }).ToList();
+
+            // ======= 🆕 Rác đã thu thực tế (từ CollectionProof Approved) =======
+
+            // Hôm nay — SUM Quantity của WasteReportWaste thuộc proof approved hôm nay
+            dto.Summary.TodayCollectedQuantity = await proofRepo.Entities
+                .Include(x => x.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                .Where(x =>
+                    !x.IsDeleted &&
+                    x.Assignment.Request.EnterpriseId == enterpriseId &&
+                    x.ReviewStatus == ProofReviewStatus.Approved &&
+                    x.ReviewedAt >= todayStart &&
+                    x.ReviewedAt < todayEnd)
+                .SumAsync(x => (decimal?)x.Assignment.Request.WasteReportWaste.Quantity) ?? 0;
+
+            // All time
+            dto.Summary.TotalCollectedQuantityAllTime = await proofRepo.Entities
+                .Include(x => x.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                .Where(x =>
+                    !x.IsDeleted &&
+                    x.Assignment.Request.EnterpriseId == enterpriseId &&
+                    x.ReviewStatus == ProofReviewStatus.Approved)
+                .SumAsync(x => (decimal?)x.Assignment.Request.WasteReportWaste.Quantity) ?? 0;
+
+            // Số lượng thu gom theo tháng (chart trend)
+            dto.CollectedQuantityByMonth = await proofRepo.Entities
+                .Include(x => x.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                .Where(x =>
+                    !x.IsDeleted &&
+                    x.Assignment.Request.EnterpriseId == enterpriseId &&
+                    x.ReviewStatus == ProofReviewStatus.Approved &&
+                    x.ReviewedAt.HasValue)
+                .GroupBy(x => new { x.ReviewedAt!.Value.Year, x.ReviewedAt.Value.Month })
+                .Select(g => new DashboardValueItemDto
+                {
+                    Label = $"{g.Key.Year}-{g.Key.Month:D2}",
+                    Value = g.Sum(x => (decimal)x.Assignment.Request.WasteReportWaste.Quantity)
+                })
+                .OrderBy(x => x.Label)
+                .ToListAsync();
+
+            // Số lượng thu gom theo WasteType (chart)
+            dto.CollectedQuantityByWasteType = await proofRepo.Entities
+                .Include(x => x.Assignment)
+                    .ThenInclude(a => a.Request)
+                        .ThenInclude(r => r.WasteReportWaste)
+                            .ThenInclude(w => w.WasteType)
+                .Where(x =>
+                    !x.IsDeleted &&
+                    x.Assignment.Request.EnterpriseId == enterpriseId &&
+                    x.ReviewStatus == ProofReviewStatus.Approved)
+                .GroupBy(x => x.Assignment.Request.WasteReportWaste.WasteType.Name)
+                .Select(g => new DashboardValueItemDto
+                {
+                    Label = g.Key,
+                    Value = g.Sum(x => (decimal)x.Assignment.Request.WasteReportWaste.Quantity)
+                })
+                .OrderByDescending(x => x.Value)
+                .ToListAsync();
+
+            // ======= Charts cũ =======
             dto.RequestsByMonth = await requestRepo.Entities
                 .Where(x => !x.IsDeleted && x.EnterpriseId == enterpriseId)
                 .GroupBy(x => new { x.CreatedTime.Year, x.CreatedTime.Month })
@@ -327,6 +415,7 @@ namespace Application.Services
             return dto;
         }
 
+        // ======================== COLLECTOR ========================
         public async Task<CollectorDashboardDto> GetCollectorDashboardAsync(Guid collectorUserId)
         {
             var dto = new CollectorDashboardDto();

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Application.Contract.DTOs
+﻿namespace Application.Contract.DTOs
 {
     public class DashboardChartItemDto
     {
@@ -18,6 +12,7 @@ namespace Application.Contract.DTOs
         public decimal Value { get; set; }
     }
 
+    // ======================== ADMIN ========================
     public class AdminDashboardDto
     {
         public AdminSummaryDto Summary { get; set; } = new();
@@ -41,6 +36,7 @@ namespace Application.Contract.DTOs
         public decimal TotalRewardedPoints { get; set; }
     }
 
+    // ======================== CITIZEN ========================
     public class CitizenDashboardDto
     {
         public CitizenSummaryDto Summary { get; set; } = new();
@@ -59,17 +55,26 @@ namespace Application.Contract.DTOs
         public decimal MyPointsThisMonth { get; set; }
     }
 
+    // ======================== ENTERPRISE ========================
     public class EnterpriseDashboardDto
     {
         public EnterpriseSummaryDto Summary { get; set; } = new();
+
+        // Charts cũ
         public List<DashboardChartItemDto> RequestsByMonth { get; set; } = new();
         public List<DashboardChartItemDto> RequestsByStatus { get; set; } = new();
         public List<DashboardChartItemDto> ProofsByReviewStatus { get; set; } = new();
         public List<DashboardChartItemDto> RequestsByWasteType { get; set; } = new();
+
+        // 🆕 Charts mới
+        public List<CapacityByWasteTypeDto> CapacityByWasteType { get; set; } = new();
+        public List<DashboardValueItemDto> CollectedQuantityByMonth { get; set; } = new();
+        public List<DashboardValueItemDto> CollectedQuantityByWasteType { get; set; } = new();
     }
 
     public class EnterpriseSummaryDto
     {
+        // Cũ
         public int TotalRequestsReceived { get; set; }
         public int PendingRequests { get; set; }
         public int CompletedRequests { get; set; }
@@ -77,8 +82,27 @@ namespace Application.Contract.DTOs
         public int ApprovedProofs { get; set; }
         public int RejectedProofs { get; set; }
         public decimal CompletionRate { get; set; }
+
+        // 🆕 Capa hôm nay
+        public decimal TodayTotalCapacity { get; set; }
+        public decimal TodayAssignedCount { get; set; }
+        public decimal TodayRemainingCapacity { get; set; }
+
+        // 🆕 Rác đã thu thực tế (từ Proof Approved)
+        public decimal TodayCollectedQuantity { get; set; }
+        public decimal TotalCollectedQuantityAllTime { get; set; }
     }
 
+    // 🆕 Capa per WasteType (để vẽ bar chart)
+    public class CapacityByWasteTypeDto
+    {
+        public string WasteTypeName { get; set; } = string.Empty;
+        public decimal DailyCapacity { get; set; }
+        public decimal AssignedToday { get; set; }
+        public decimal Remaining { get; set; }
+    }
+
+    // ======================== COLLECTOR ========================
     public class CollectorDashboardDto
     {
         public CollectorSummaryDto Summary { get; set; } = new();

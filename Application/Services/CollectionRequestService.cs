@@ -18,7 +18,6 @@ namespace Application.Services
             IUnitOfWork uow,
             INotificationService notificationService,
             IRegionCodeResolver regionCodeResolver)
-
         {
             _uow = uow;
             _notificationService = notificationService;
@@ -87,6 +86,8 @@ namespace Application.Services
             var wardRepo = _uow.GetRepository<Ward>();
             var reqRepo = _uow.GetRepository<CollectionRequest>();
 
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
             var requestedEnterpriseIds = await reqRepo.NoTrackingEntities
                 .Where(x =>
                     x.WasteReportWasteId == wasteItemId &&
@@ -123,6 +124,8 @@ namespace Application.Services
                          )
                 select e.Id;
 
+            // 🔥 Fix: tính RemainingCapacity có xét reset ngày mới
+            // Nếu LastResetDate != hôm nay → coi như AssignedTodayCount = 0
             var candidates =
                 from eid in enterprisesInArea.Distinct()
                 join c in capRepo.NoTrackingEntities
@@ -130,11 +133,15 @@ namespace Application.Services
                 where !c.IsDeleted
                       && c.WasteTypeId == wasteTypeId
                       && !requestedEnterpriseIds.Contains(eid)
-                      && (c.DailyCapacityKg - c.AssignedTodayKg) > 0
+                      && (c.LastResetDate == today
+                            ? (c.DailyCapacityKg - c.AssignedTodayCount)
+                            : c.DailyCapacityKg) > 0
                 select new
                 {
                     EnterpriseId = eid,
-                    RemainingCapacity = (c.DailyCapacityKg - c.AssignedTodayKg)
+                    RemainingCapacity = c.LastResetDate == today
+                        ? (c.DailyCapacityKg - c.AssignedTodayCount)
+                        : c.DailyCapacityKg
                 };
 
             var best = await candidates
@@ -179,7 +186,6 @@ namespace Application.Services
 
             var dtos = items.Select(MapToDto).ToList();
 
-            // ✅ Thêm address (KHÔNG đụng logic cũ)
             foreach (var dto in dtos)
             {
                 if (dto.Latitude.HasValue && dto.Longitude.HasValue)
@@ -234,13 +240,22 @@ namespace Application.Services
 
             if (capability != null)
             {
-                capability.AssignedTodayKg += entity.WasteReportWaste.Quantity;
+                var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+                // 🔥 Fix Bug 1: Reset nếu sang ngày mới
+                if (capability.LastResetDate != today)
+                {
+                    capability.AssignedTodayCount = 0;
+                    capability.LastResetDate = today;
+                }
+
+                // 🔥 Fix Bug 2: Cộng Quantity (số item) thay vì kg
+                capability.AssignedTodayCount += entity.WasteReportWaste.Quantity;
                 capRepo.Update(capability);
             }
 
             await _uow.SaveAsync();
 
-            // Notification
             var citizenId = entity.WasteReportWaste.WasteReport.CitizenId;
 
             await _notificationService.CreateAsync(
@@ -280,7 +295,6 @@ namespace Application.Services
             repo.Update(entity);
             await _uow.SaveAsync();
 
-            // Notification reject
             var citizenId = entity.WasteReportWaste.WasteReport.CitizenId;
 
             await _notificationService.CreateAsync(
@@ -308,7 +322,6 @@ namespace Application.Services
                 reportRepo.Update(report);
                 await _uow.SaveAsync();
 
-                // Notification no enterprise
                 await _notificationService.CreateAsync(
                     report.CitizenId,
                     NotificationConstants.Types.WASTE_REPORT_NO_ENTERPRISE,
