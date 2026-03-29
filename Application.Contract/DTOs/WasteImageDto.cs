@@ -1,5 +1,6 @@
 ﻿using Core.Enum;
 using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
 {
@@ -8,8 +9,14 @@ namespace Application.Contract.DTOs
     // =============================
     public class CreateWasteImageDto
     {
+        // FIX: Thêm [Required]
+        [Required(ErrorMessage = "WasteReportWasteId là bắt buộc.")]
         public Guid WasteReportWasteId { get; set; }
+
+        // FIX: Thêm [Required]
+        [Required(ErrorMessage = "File ảnh là bắt buộc.")]
         public IFormFile File { get; set; } = default!;
+
         public WasteImageType ImageType { get; set; }
     }
 

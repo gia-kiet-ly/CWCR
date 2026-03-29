@@ -11,14 +11,14 @@ namespace Application.Contract.DTOs
         [MaxLength(500)]
         public string? Description { get; set; }
 
-        // GPS có thể tự fill
         [Range(-90.0, 90.0, ErrorMessage = "Latitude phải trong khoảng -90 đến 90.")]
         public decimal? Latitude { get; set; }
 
         [Range(-180.0, 180.0, ErrorMessage = "Longitude phải trong khoảng -180 đến 180.")]
         public decimal? Longitude { get; set; }
 
-        [MinLength(1, ErrorMessage = "Phải có ít nhất 1 loại rác.")]
+        // Bỏ [MinLength(1)] vì không hoạt động trên List<T>
+        // Validate trong Service: if (dto.Wastes == null || !dto.Wastes.Any()) throw ...
         public List<CreateWasteItemDto> Wastes { get; set; } = new();
     }
 

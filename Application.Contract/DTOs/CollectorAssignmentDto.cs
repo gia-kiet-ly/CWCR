@@ -44,8 +44,12 @@ namespace Application.Contract.DTOs
     // Enterprise assign
     public class CreateAssignmentDto
     {
+        // FIX: Thêm [Required] cho cả hai field
+        [Required(ErrorMessage = "RequestId là bắt buộc.")]
         public Guid RequestId { get; set; }
 
+        // FIX: Thêm [Required]
+        [Required(ErrorMessage = "CollectorId là bắt buộc.")]
         public Guid CollectorId { get; set; }   // ApplicationUser.Id
     }
 

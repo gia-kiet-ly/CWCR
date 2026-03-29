@@ -1,4 +1,5 @@
 ﻿using Core.Enum;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
 {
@@ -7,8 +8,15 @@ namespace Application.Contract.DTOs
     // =============================
     public class CreateWasteTypeDto
     {
+        // FIX: Thêm [Required] và [MaxLength] cho Name
+        [Required(ErrorMessage = "Tên loại rác là bắt buộc.")]
+        [MaxLength(200, ErrorMessage = "Tên loại rác không được vượt quá 200 ký tự.")]
         public string Name { get; set; } = default!;
+
+        [MaxLength(1000, ErrorMessage = "Mô tả không được vượt quá 1000 ký tự.")]
         public string? Description { get; set; }
+
+        [Required(ErrorMessage = "Category là bắt buộc.")]
         public WasteCategory Category { get; set; }
     }
 
@@ -17,8 +25,12 @@ namespace Application.Contract.DTOs
     // =============================
     public class UpdateWasteTypeDto
     {
+        [MaxLength(200, ErrorMessage = "Tên loại rác không được vượt quá 200 ký tự.")]
         public string? Name { get; set; }
+
+        [MaxLength(1000, ErrorMessage = "Mô tả không được vượt quá 1000 ký tự.")]
         public string? Description { get; set; }
+
         public WasteCategory? Category { get; set; }
         public bool? IsActive { get; set; }
     }

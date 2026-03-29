@@ -64,7 +64,9 @@ namespace Application.Contract.DTOs
 
     public class AdjustRewardStockDto
     {
+        // FIX: Thêm [Range] để giới hạn giá trị Delta hợp lệ
         // +10 nhập thêm, -3 trừ bớt
+        [Range(-10000, 10000, ErrorMessage = "Delta phải trong khoảng -10000 đến 10000.")]
         public int Delta { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Core.Enum;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contract.DTOs
 {
@@ -17,6 +18,8 @@ namespace Application.Contract.DTOs
 
     public class UpdateCitizenPointRequest
     {
+        // FIX: Thêm [Range] để tránh giá trị âm
+        [Range(0, int.MaxValue, ErrorMessage = "TotalPoints phải >= 0.")]
         public int TotalPoints { get; set; }
     }
 
@@ -36,6 +39,9 @@ namespace Application.Contract.DTOs
         public Guid? WardId { get; set; }
         public Guid? DistrictId { get; set; }
         public LeaderboardPeriod Period { get; set; } = LeaderboardPeriod.AllTime;
+
+        // FIX: Thêm [Range] để tránh giá trị 0 hoặc âm
+        [Range(1, 100, ErrorMessage = "TopCount phải từ 1 đến 100.")]
         public int TopCount { get; set; } = 10;
     }
 
