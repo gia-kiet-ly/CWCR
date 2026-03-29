@@ -40,7 +40,9 @@ namespace Application.Contract.DTOs
     {
         public Guid? ComplaintId { get; set; }
         public Guid? EnterpriseId { get; set; }
-        public Guid? ResponseNote { get; set; }
+
+        // FIX: Sửa kiểu từ Guid? sang string? — đây là search text, không phải ID
+        public string? ResponseNote { get; set; }
 
         public DateTimeOffset? FromDate { get; set; }
 

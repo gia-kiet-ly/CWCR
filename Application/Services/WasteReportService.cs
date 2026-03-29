@@ -128,16 +128,13 @@ namespace Application.Services
             if (report == null || report.IsDeleted)
                 throw new Exception("WasteReport not found.");
 
+            if (report.Status != WasteReportStatus.NoEnterpriseAvailable)
+                throw new Exception("Redispatch is not allowed.");
+
             if (report.RedispatchCount >= 1)
                 throw new Exception("Redispatch limit reached.");
 
             report.RedispatchCount++;
-            if (report == null || report.IsDeleted)
-                throw new Exception("WasteReport not found.");
-
-            if (report.Status != WasteReportStatus.NoEnterpriseAvailable)
-                throw new Exception("Redispatch is not allowed.");
-
             report.Status = WasteReportStatus.Pending;
             report.LastUpdatedTime = DateTimeOffset.UtcNow;
 
