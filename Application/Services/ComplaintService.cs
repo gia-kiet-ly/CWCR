@@ -121,6 +121,7 @@ namespace Application.Services
         }
 
         // ================= GET BY ID =================
+        // ================= GET BY ID =================
         public async Task<ComplaintResponseDto?> GetByIdAsync(
             Guid id,
             Guid currentUserId,
@@ -130,15 +131,35 @@ namespace Application.Services
 
             var complaint = await repo.NoTrackingEntities
                 .Include(x => x.Resolutions)
+                .Include(x => x.CollectionRequest) // 🔥 cần include để check EnterpriseId
                 .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
 
             if (complaint == null)
                 return null;
 
-            //if (!isAdmin && complaint.ComplainantId != currentUserId)
-            //    throw new Exception("Unauthorized");
+            // Admin xem được tất cả
+            if (isAdmin)
+                return MapToDto(complaint);
 
-            return MapToDto(complaint);
+            // Citizen xem được complaint của mình
+            if (complaint.ComplainantId == currentUserId)
+                return MapToDto(complaint);
+
+            // Enterprise xem được complaint liên quan đến mình
+            if (complaint.CollectionRequestId != null)
+            {
+                var enterpriseRepo = _unitOfWork.GetRepository<RecyclingEnterprise>();
+                var enterprise = await enterpriseRepo.NoTrackingEntities
+                    .FirstOrDefaultAsync(e => e.UserId == currentUserId && !e.IsDeleted);
+
+                if (enterprise != null &&
+                    complaint.CollectionRequest!.EnterpriseId == enterprise.Id)
+                {
+                    return MapToDto(complaint);
+                }
+            }
+
+            throw new Exception("Unauthorized");
         }
         public async Task<PagedComplaintDto> GetEnterpriseComplaintsAsync(
          Guid userId,  // đây thực ra là UserId, không phải EnterpriseId

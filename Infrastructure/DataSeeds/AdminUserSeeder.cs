@@ -22,6 +22,12 @@ namespace Infrastructure.DataSeeds
                 password: "String@123",
                 role: SystemRoles.RecyclingEnterprise);
 
+            await EnsureUserAsync(userManager,
+                email: "enterprise2@system.com",
+                fullName: "Default Enterprise 2",
+                password: "String@123",
+                role: SystemRoles.RecyclingEnterprise);
+
             // ================= CITIZEN =================
             await EnsureUserAsync(userManager,
                 email: "citizen@system.com",
