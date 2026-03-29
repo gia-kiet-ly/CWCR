@@ -312,7 +312,7 @@ namespace Application.Services
                     !x.IsDeleted &&
                     x.Status == CollectionRequestStatus.Rejected);
 
-            if (rejectCount >= 3)
+            if (rejectCount >= 2)
             {
                 var report = entity.WasteReportWaste.WasteReport;
 
