@@ -141,6 +141,26 @@ namespace Application.Services
             repo.Update(report);
             await _unitOfWork.SaveAsync();
 
+            // 🔥 ADD ĐOẠN NÀY
+            var requestRepo = _unitOfWork.GetRepository<CollectionRequest>();
+
+            var oldRequests = await requestRepo.Entities
+                .Include(x => x.WasteReportWaste)
+                .Where(x =>
+                    x.WasteReportWaste.WasteReportId == reportId &&
+                    !x.IsDeleted)
+                .ToListAsync();
+
+            foreach (var r in oldRequests)
+            {
+                r.IsDeleted = true;
+                r.DeletedTime = DateTimeOffset.UtcNow;
+                requestRepo.Update(r);
+            }
+
+            await _unitOfWork.SaveAsync();
+            // 🔥 END
+
             await _collectionRequestService.CreateTop1RequestsForReportAsync(report.Id);
         }
 
